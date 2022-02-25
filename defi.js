@@ -97,7 +97,7 @@ class DeFi extends DeFiEth {
 	async toGetPair(tokenId1, tokenId2, feeRate = 0.003) {
 		let defi = this;
 		let {factory} = defi;
-		return await factory.toGetPair(defi.token(tokenId1).address, defi.token(tokenId2).address, feeRate);
+		return await factory.toGetPair(defi.newToken(tokenId1).address, defi.newToken(tokenId2).address, feeRate);
 	}
 }
 cutil.extend(DeFi.prototype, {
