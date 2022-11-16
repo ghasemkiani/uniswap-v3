@@ -1,32 +1,32 @@
 {
-  "name": "@ghasemkiani/uniswap-v3",
-  "version": "2.1.0",
-  "description": "Uniswap v3 client",
-  "type": "module",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://gitlab.com/ghasemkiani/uniswap-v3.git"
-  },
-  "keywords": [
-    "blockchain",
-    "cryptocurrency",
-    "ethereum",
-    "uniswap",
-    "uniswap-v3"
-  ],
-  "author": "Ghasem Kiani",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://gitlab.com/ghasemkiani/uniswap-v3/issues"
-  },
-  "homepage": "https://gitlab.com/ghasemkiani/uniswap-v3#readme",
-  "dependencies": {
-    "@ghasemkiani/base": "github:ghasemkiani/base",
-    "@ghasemkiani/ethereum": "github:ghasemkiani/ethereum",
-    "puppeteer-core": "^13.6.0"
-  }
+	"name": "@ghasemkiani/uniswap-v3",
+	"version": "2.1.1",
+	"description": "Uniswap v3 client",
+	"type": "module",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://gitlab.com/ghasemkiani/uniswap-v3.git"
+	},
+	"keywords": [
+		"blockchain",
+		"cryptocurrency",
+		"ethereum",
+		"uniswap",
+		"uniswap-v3"
+	],
+	"author": "Ghasem Kiani",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://gitlab.com/ghasemkiani/uniswap-v3/issues"
+	},
+	"homepage": "https://gitlab.com/ghasemkiani/uniswap-v3#readme",
+	"dependencies": {
+		"@ghasemkiani/base": "github:ghasemkiani/base",
+		"@ghasemkiani/ethereum": "github:ghasemkiani/ethereum",
+		"bignumber.js": "^9.1.0"
+	}
 }
