@@ -207,7 +207,8 @@ class DeFi extends Obj {
 			contract.toCallRead("liquidity"),
 			contract.toCallRead("slot0"),
 		]);
-		let [
+		console.log(slot0);
+		let {
 			sqrtPriceX96,
 			tick,
 			observationIndex,
@@ -215,7 +216,7 @@ class DeFi extends Obj {
 			observationCardinalityNext,
 			feeProtocol,
 			unlocked,
-		] = slot0;
+		} = slot0;
 		
 		let price = d(1.0001).pow(tick).toString();
 		
