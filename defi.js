@@ -1,4 +1,5 @@
 import bn from "bignumber.js";
+import d from "decimal.js";
 
 import {cutil} from "@ghasemkiani/base";
 import {Obj} from "@ghasemkiani/base";
@@ -48,8 +49,8 @@ class Position extends Obj {
 			
 			nonce: null,
 			operator: null,
-			token0: addressToken0: null,
-			token1: addressToken1: null,
+			addressToken0: null,
+			addressToken1: null,
 			fee: null,
 			tickLower: null,
 			tickUpper: null,
@@ -206,10 +207,15 @@ class DeFi extends Obj {
 			unlocked,
 		] = slot0;
 		
+		let token0 = new Token({address: addressToken0, id: util.tokenId(addressToken0)});
+		let token1 = new Token({address: addressToken1, id: util.tokenId(addressToken1)});
+		
 		return new Pool({
 			defi,
 			address,
 			contract,
+			token0,
+			token1,
 			// immutables
 			addressFactory,
 			addressToken0,
@@ -263,7 +269,7 @@ class DeFi extends Obj {
 			tokensOwed0,
 			tokensOwed1,
 		} = await positionManager.toCallRead("positions", id);
-		//////////// Fixed until here...
+		
 		let tokenId0 = util.tokenId(addressToken0);
 		let tokenId1 = util.tokenId(addressToken1);
 		let pool = await defi.toGetPool(tokenId0, tokenId1, cutil.asNumber(fee) * 1e-6);
@@ -289,20 +295,22 @@ class DeFi extends Obj {
 			.plus(bn(tokensOwed1))
 			.toString();
 		
-		// let fee0_ = ((pool.feeGrowthGlobal0X128 - feeGrowthOutside0X128Lower - feeGrowthOutside0X128Upper - feeGrowthInside0LastX128) / (2 ** 128)) * liquidity;
-		// let fee1_ = ((pool.feeGrowthGlobal1X128 - feeGrowthOutside1X128Lower - feeGrowthOutside1X128Upper - feeGrowthInside1LastX128) / (2 ** 128)) * liquidity;
-		console.log(pool.token0.id);
-		console.log(pool.token0.address);
 		await pool.token0.toGetAbi();
 		await pool.token0.toGetDecimals();
-		console.log(pool.token1.id);
-		console.log(pool.token1.address);
 		await pool.token1.toGetAbi();
 		await pool.token1.toGetDecimals();
 		let fee0 = pool.token0.unwrapNumber(fee0_);
 		let fee1 = pool.token1.unwrapNumber(fee1_);
-		// let amount0_ = bn(liquidity).multipliedBy(bn(price).sqrt().pow(-1).minus(bn(priceUpper).sqrt().pow(-1)));
-		// let amount1_ = bn(liquidity).multipliedBy(bn(price).sqrt().pow(+1).minus(bn(priceLower).sqrt().pow(+1)));
+		
+		let priceLower = d(1.0001).pow(tickLower).toString();
+		let priceUpper = d(1.0001).pow(tickUpper).toString();
+		
+		let amount0_ = d(liquidity).mul(d(1.0001).pow(pool.tick * -0.5).minus(d(1.0001).pow(tickUpper * -0.5))).toFixed(0);
+		let amount1_ = d(liquidity).mul(d(1.0001).pow(pool.tick * +0.5).minus(d(1.0001).pow(tickLower * +0.5))).toFixed(0);
+		
+		let amount0 = pool.token0.unwrapNumber(amount0_);
+		let amount1 = pool.token1.unwrapNumber(amount1_);
+		
 		return new Position({
 			id,
 			nonce,
@@ -322,6 +330,12 @@ class DeFi extends Obj {
 			fee1_,
 			fee0,
 			fee1,
+			priceLower,
+			priceUpper,
+			amount0_,
+			amount1_,
+			amount0,
+			amount1,
 		});
 	}
 }

@@ -1,6 +1,6 @@
 {
 	"name": "@ghasemkiani/uniswap-v3",
-	"version": "2.1.1",
+	"version": "2.1.2",
 	"description": "Uniswap v3 client",
 	"type": "module",
 	"main": "index.js",
@@ -27,6 +27,7 @@
 	"dependencies": {
 		"@ghasemkiani/base": "github:ghasemkiani/base",
 		"@ghasemkiani/ethereum": "github:ghasemkiani/ethereum",
-		"bignumber.js": "^9.1.0"
+		"bignumber.js": "^9.1.0",
+		"decimal.js": "^10.4.2"
 	}
 }
