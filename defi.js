@@ -207,7 +207,6 @@ class DeFi extends Obj {
 			contract.toCallRead("liquidity"),
 			contract.toCallRead("slot0"),
 		]);
-		console.log(slot0);
 		let {
 			sqrtPriceX96,
 			tick,
@@ -218,10 +217,15 @@ class DeFi extends Obj {
 			unlocked,
 		} = slot0;
 		
-		let price = d(1.0001).pow(tick).toString();
-		
 		let token0 = new Token({address: addressToken0, id: util.tokenId(addressToken0)});
 		let token1 = new Token({address: addressToken1, id: util.tokenId(addressToken1)});
+		
+		await token0.toGetAbi();
+		await token1.toGetAbi();
+		await token0.toGetDecimals();
+		await token1.toGetDecimals();
+		
+		let price = d(1.0001).pow(tick).mul(10 ** (token0.decimals - token1.decimals)).toString();
 		
 		return new Pool({
 			defi,
@@ -317,8 +321,8 @@ class DeFi extends Obj {
 		let fee0 = pool.token0.unwrapNumber(fee0_);
 		let fee1 = pool.token1.unwrapNumber(fee1_);
 		
-		let priceLower = d(1.0001).pow(tickLower).toString();
-		let priceUpper = d(1.0001).pow(tickUpper).toString();
+		let priceLower = d(1.0001).pow(tickLower).mul(10 ** (pool.token0.decimals - pool.token1.decimals)).toString();
+		let priceUpper = d(1.0001).pow(tickUpper).mul(10 ** (pool.token0.decimals - pool.token1.decimals)).toString();
 		
 		let amount0_ = d(liquidity).mul(d(1.0001).pow(pool.tick * -0.5).minus(d(1.0001).pow(tickUpper * -0.5))).toFixed(0);
 		let amount1_ = d(liquidity).mul(d(1.0001).pow(pool.tick * +0.5).minus(d(1.0001).pow(tickLower * +0.5))).toFixed(0);
