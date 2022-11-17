@@ -79,6 +79,11 @@ class Position extends Obj {
 			amount1_: null,
 			amount0: null,
 			amount1: null,
+			
+			max0_: null,
+			max1_: null,
+			max0: null,
+			max1: null,
 		});
 	}
 	
@@ -256,17 +261,17 @@ class DeFi extends Obj {
 			price,
 		});
 	}
-	async toGetPosition(index) {
+	async toGetPositionAt(index) {
 		let defi = this;
 		
 		let id = await defi.toGetPositionId(index);
-		let position = await defi.toGetPositionById(id);
+		let position = await defi.toGetPosition(id);
 		
 		return cutil.assign(position, {
 			index,
 		});
 	}
-	async toGetPositionById(id) {
+	async toGetPosition(id) {
 		let defi = this;
 		let {Position} = defi;
 		let {util} = defi;
@@ -330,6 +335,12 @@ class DeFi extends Obj {
 		let amount0 = pool.token0.unwrapNumber(amount0_);
 		let amount1 = pool.token1.unwrapNumber(amount1_);
 		
+		let max0_ = d(liquidity).mul(d(1.0001).pow(tickLower * -0.5).minus(d(1.0001).pow(tickUpper * -0.5))).toFixed(0);
+		let max1_ = d(liquidity).mul(d(1.0001).pow(tickUpper * +0.5).minus(d(1.0001).pow(tickLower * +0.5))).toFixed(0);
+		
+		let max0 = pool.token0.unwrapNumber(max0_);
+		let max1 = pool.token1.unwrapNumber(max1_);
+		
 		return new Position({
 			id,
 			nonce,
@@ -355,6 +366,10 @@ class DeFi extends Obj {
 			amount1_,
 			amount0,
 			amount1,
+			max0_,
+			max1_,
+			max0,
+			max1,
 		});
 	}
 }
