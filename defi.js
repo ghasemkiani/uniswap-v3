@@ -34,6 +34,8 @@ class Pool extends Obj {
 			observationCardinalityNext: null,
 			feeProtocol: null,
 			unlocked: null,
+			
+			price: null,
 		});
 	}
 	
@@ -69,6 +71,14 @@ class Position extends Obj {
 			fee1_: null,
 			fee0: null,
 			fee1: null,
+			
+			priceLower: null,
+			priceUpper: null,
+			
+			amount0_: null,
+			amount1_: null,
+			amount0: null,
+			amount1: null,
 		});
 	}
 	
@@ -207,6 +217,8 @@ class DeFi extends Obj {
 			unlocked,
 		] = slot0;
 		
+		let price = d(1.0001).pow(tick).toString();
+		
 		let token0 = new Token({address: addressToken0, id: util.tokenId(addressToken0)});
 		let token1 = new Token({address: addressToken1, id: util.tokenId(addressToken1)});
 		
@@ -235,6 +247,8 @@ class DeFi extends Obj {
 			observationCardinalityNext,
 			feeProtocol,
 			unlocked,
+			
+			price,
 		});
 	}
 	async toGetPosition(index) {
