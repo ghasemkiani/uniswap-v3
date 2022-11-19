@@ -84,9 +84,46 @@ class Position extends Obj {
 			max1_: null,
 			max0: null,
 			max1: null,
+			
+			collected0_: null,
+			collected1_: null,
+			collected0: null,
+			collected1: null,
 		});
 	}
-	
+	async toCollect(recipient = null) {
+		let position = this;
+		let {defi} = position;
+		let {id} = position;
+		let {positionManager} = defi;
+		let {account} = defi;
+		let {address} = account;
+		
+		await positionManager.toGetAbi();
+		let {abi} = positionManager;
+		
+		let tokenId = id.toString();
+		if (!recipient) {
+			recipient = address;
+		}
+		let amount0Max = bn(2).pow(128).minus(1).toFixed(0);
+		let amount1Max = bn(2).pow(128).minus(1).toFixed(0);
+		let result = await positionManager.toCallWrite("collect", [tokenId, recipient, amount0Max, amount1Max]);
+		// console.log(JSON.stringify(result, null, "\t"));
+		let itemEvent = abi.find(({type, name}) => type === "event" && name === "Collect");
+		let dataEvent = web3.eth.abi.encodeEventSignature(itemEvent);
+		let log = logs.find(({topics: [d, i]}) => d === dataEvent && parseInt(i) === parseInt(tokenId));
+		let collected0_ = null;
+		let collected1_ = null;
+		if (log) {
+			let {data: dataLog} = log;
+			// first item is index_topic_1
+			let decoded = web3.eth.abi.decodeParameters(itemEvent.inputs.map(({type}) => type).slice(1), dataLog);
+			collected0_ = decoded[1];
+			collected1_ = decoded[2];
+		}
+		return [collected0_, collected1_];
+	}
 }
 
 class DeFi extends Obj {
@@ -107,6 +144,8 @@ class DeFi extends Obj {
 			
 			addressFactory: null,
 			addressPositionManager: null,
+			
+			FEE_RATE_K: 1e6,
 		});
 	}
 	get factory() {
@@ -133,6 +172,12 @@ class DeFi extends Obj {
 		let defi = this;
 		defi._positionManager = positionManager;
 	}
+	feeToRate(fee) {
+		return cutil.asNumber(fee) / this.FEE_RATE_K;
+	}
+	rateToFee(rate) {
+		return cutil.asInteger(rate * this.FEE_RATE_K);
+	}
 	async toGetPositionCount() {
 		let defi = this;
 		let {positionManager} = defi;
@@ -154,11 +199,16 @@ class DeFi extends Obj {
 		let id = await positionManager.toCallRead("tokenOfOwnerByIndex", address, index);
 		return id;
 	}
+	async toGetTickSpacingForFeeRate(feeRate) {
+		let defi = this;
+		let {factory} = defi;
+		await factory.toGetAbi();
+		let tickSpacing = await factory.toCallRead("feeAmountTickSpacing", defi.rateToFee(feeRate));
+		return cutil.asNumber(tickSpacing);
+	}
 	async toGetPool(tokenIdA, tokenIdB, feeRate) {
 		let defi = this;
-		let {util} = defi;
 		let {factory} = defi;
-		let {Contract} = defi;
 		let {Token} = defi;
 		let {Pool} = defi;
 		
@@ -166,7 +216,7 @@ class DeFi extends Obj {
 		let tokenB = new Token(tokenIdB);
 		
 		await factory.toGetAbi();
-		let address = await factory.toCallRead("getPool", tokenA.address, tokenB.address, cutil.asInteger(feeRate * 1e6));
+		let address = await factory.toCallRead("getPool", tokenA.address, tokenB.address, defi.rateToFee(feeRate));
 		let pool = await defi.toGetPoolByAddress(address);
 		
 		return cutil.assign(pool, {
@@ -176,6 +226,18 @@ class DeFi extends Obj {
 			tokenA,
 			tokenB,
 		});
+	}
+	async toCreatePool(tokenIdA, tokenIdB, feeRate) {
+		let defi = this;
+		let {factory} = defi;
+		
+		let tokenA = new Token(tokenIdA);
+		let tokenB = new Token(tokenIdB);
+		
+		await factory.toGetAbi();
+		let address = await factory.toCallRead("createPool", tokenA.address, tokenB.address, defi.rateToFee(feeRate));
+		
+		return address;
 	}
 	async toGetPoolByAddress(address) {
 		let defi = this;
@@ -296,7 +358,7 @@ class DeFi extends Obj {
 		
 		let tokenId0 = util.tokenId(addressToken0);
 		let tokenId1 = util.tokenId(addressToken1);
-		let pool = await defi.toGetPool(tokenId0, tokenId1, cutil.asNumber(fee) * 1e-6);
+		let pool = await defi.toGetPool(tokenId0, tokenId1, defi.feeToRate(fee));
 		let {feeGrowthOutside0X128: feeGrowthOutside0X128Lower, feeGrowthOutside1X128: feeGrowthOutside1X128Lower} = await pool.contract.toCallRead("ticks", cutil.asNumber(tickLower));
 		let {feeGrowthOutside0X128: feeGrowthOutside0X128Upper, feeGrowthOutside1X128: feeGrowthOutside1X128Upper} = await pool.contract.toCallRead("ticks", cutil.asNumber(tickUpper));
 		
@@ -342,6 +404,7 @@ class DeFi extends Obj {
 		let max1 = pool.token1.unwrapNumber(max1_);
 		
 		return new Position({
+			defi,
 			id,
 			nonce,
 			operator,
