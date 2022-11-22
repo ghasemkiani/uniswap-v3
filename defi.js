@@ -391,6 +391,7 @@ class DeFi extends Obj {
 		let {feeGrowthOutside0X128: feeGrowthOutside0X128Lower, feeGrowthOutside1X128: feeGrowthOutside1X128Lower} = await pool.contract.toCallRead("ticks", cutil.asNumber(tickLower));
 		let {feeGrowthOutside0X128: feeGrowthOutside0X128Upper, feeGrowthOutside1X128: feeGrowthOutside1X128Upper} = await pool.contract.toCallRead("ticks", cutil.asNumber(tickUpper));
 		
+		/*
 		console.log(`${"feeGrowthGlobal0X128".padEnd(30)}\t${pool.feeGrowthGlobal0X128.padStart(80)}`);
 		console.log(`${"feeGrowthOutside0X128Lower".padEnd(30)}\t${feeGrowthOutside0X128Lower.padStart(80)}`);
 		console.log(`${"feeGrowthOutside0X128Upper".padEnd(30)}\t${feeGrowthOutside0X128Upper.padStart(80)}`);
@@ -404,6 +405,7 @@ class DeFi extends Obj {
 		console.log(`${"feeGrowthInside1LastX128".padEnd(30)}\t${feeGrowthInside1LastX128.padStart(80)}`);
 		console.log(`${"liquidity".padEnd(30)}\t${liquidity.padStart(80)}`);
 		console.log(`${"tokensOwed1".padEnd(30)}\t${tokensOwed1.padStart(80)}`);
+		*/
 		
 		let fee0_ = 
 			bn(pool.feeGrowthGlobal0X128)
@@ -478,19 +480,22 @@ class DeFi extends Obj {
 			max1,
 		});
 	}
-	async toGetPositions(tokenIdA, tokenIdB, feeRate, maxCount = 0) {
-		let {defi} = this;
+	async toGetPositions(tokenIdA, tokenIdB, feeRate, maxCount = 0, maxSearchCount = 0) {
+		let defi = this;
 		let {util} = defi;
 		let pool = await defi.toGetPool(tokenIdA, tokenIdB, feeRate);
 		let {address: addressPool} = pool;
 		let positionCount = await defi.toGetPositionCount();
-		maxCount ||= positionCount;
+		maxSearchCount ||= positionCount;
 		let result = [];
-		for (let i = 0; i < maxCount; i++) {
+		for (let i = 0; i < maxSearchCount; i++) {
 			let index = positionCount - 1 - i;
 			let position = await defi.toGetPositionAt(index);
 			if (util.eq(position.pool.address, addressPool)) {
 				result.push(position);
+				if (result.length === maxCount) {
+					break;
+				}
 			}
 		}
 		return result;
