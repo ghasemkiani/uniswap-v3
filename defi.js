@@ -84,17 +84,15 @@ class Position extends Obj {
 			max1_: null,
 			max0: null,
 			max1: null,
-			
-			collected0_: null,
-			collected1_: null,
-			collected0: null,
-			collected1: null,
 		});
 	}
 	async toCollect(recipient = null) {
 		let position = this;
 		let {defi} = position;
+		let {util} = defi;
+		let {web3} = util;
 		let {id} = position;
+		let {pool} = position;
 		let {positionManager} = defi;
 		let {account} = defi;
 		let {address} = account;
@@ -110,19 +108,36 @@ class Position extends Obj {
 		let amount1Max = bn(2).pow(128).minus(1).toFixed(0);
 		let result = await positionManager.toCallWrite("collect", [tokenId, recipient, amount0Max, amount1Max]);
 		// console.log(JSON.stringify(result, null, "\t"));
-		let itemEvent = abi.find(({type, name}) => type === "event" && name === "Collect");
-		let dataEvent = web3.eth.abi.encodeEventSignature(itemEvent);
-		let log = logs.find(({topics: [d, i]}) => d === dataEvent && parseInt(i) === parseInt(tokenId));
 		let collected0_ = null;
 		let collected1_ = null;
+		let collected0 = null;
+		let collected1 = null;
+		let itemEvent = abi.find(({type, name}) => type === "event" && name === "Collect");
+		let dataEvent = web3.eth.abi.encodeEventSignature(itemEvent);
+		let {logs} = result;
+		let log = logs.find(({topics: [d, i]}) => d === dataEvent && parseInt(i) === parseInt(tokenId));
 		if (log) {
 			let {data: dataLog} = log;
 			// first item is index_topic_1
 			let decoded = web3.eth.abi.decodeParameters(itemEvent.inputs.map(({type}) => type).slice(1), dataLog);
 			collected0_ = decoded[1];
 			collected1_ = decoded[2];
+			if (pool) {
+				await pool.token0.toGetAbi();
+				await pool.token0.toGetDecimals();
+				await pool.token1.toGetAbi();
+				await pool.token1.toGetDecimals();
+				collected0 = pool.token0.unwrapNumber(collected0_);
+				collected1 = pool.token1.unwrapNumber(collected1_);
+				
+			}
 		}
-		return [collected0_, collected1_];
+		return {
+			collected0_,
+			collected1_,
+			collected0,
+			collected1,
+		};
 	}
 }
 
@@ -141,9 +156,11 @@ class DeFi extends Obj {
 			account: null,
 			_factory: null,
 			_positionManager: null,
+			_router2: null,
 			
 			addressFactory: null,
 			addressPositionManager: null,
+			addressRouter2: null,
 			
 			FEE_RATE_K: 1e6,
 		});
@@ -171,6 +188,18 @@ class DeFi extends Obj {
 	set positionManager(positionManager) {
 		let defi = this;
 		defi._positionManager = positionManager;
+	}
+	get router2() {
+		let defi = this;
+		if (!defi._router2) {
+			let {Contract, account, addressRouter2: address} = defi;
+			defi._router2 = new Contract({address, account});
+		}
+		return defi._router2;
+	}
+	set router2(router2) {
+		let defi = this;
+		defi._router2 = router2;
 	}
 	feeToRate(fee) {
 		return cutil.asNumber(fee) / this.FEE_RATE_K;
@@ -362,13 +391,27 @@ class DeFi extends Obj {
 		let {feeGrowthOutside0X128: feeGrowthOutside0X128Lower, feeGrowthOutside1X128: feeGrowthOutside1X128Lower} = await pool.contract.toCallRead("ticks", cutil.asNumber(tickLower));
 		let {feeGrowthOutside0X128: feeGrowthOutside0X128Upper, feeGrowthOutside1X128: feeGrowthOutside1X128Upper} = await pool.contract.toCallRead("ticks", cutil.asNumber(tickUpper));
 		
+		console.log(`${"feeGrowthGlobal0X128".padEnd(30)}\t${pool.feeGrowthGlobal0X128.padStart(80)}`);
+		console.log(`${"feeGrowthOutside0X128Lower".padEnd(30)}\t${feeGrowthOutside0X128Lower.padStart(80)}`);
+		console.log(`${"feeGrowthOutside0X128Upper".padEnd(30)}\t${feeGrowthOutside0X128Upper.padStart(80)}`);
+		console.log(`${"feeGrowthInside0LastX128".padEnd(30)}\t${feeGrowthInside0LastX128.padStart(80)}`);
+		console.log(`${"liquidity".padEnd(30)}\t${liquidity.padStart(80)}`);
+		console.log(`${"tokensOwed0".padEnd(30)}\t${tokensOwed0.padStart(80)}`);
+		
+		console.log(`${"feeGrowthGlobal1X128".padEnd(30)}\t${pool.feeGrowthGlobal1X128.padStart(80)}`);
+		console.log(`${"feeGrowthOutside1X128Lower".padEnd(30)}\t${feeGrowthOutside1X128Lower.padStart(80)}`);
+		console.log(`${"feeGrowthOutside1X128Upper".padEnd(30)}\t${feeGrowthOutside1X128Upper.padStart(80)}`);
+		console.log(`${"feeGrowthInside1LastX128".padEnd(30)}\t${feeGrowthInside1LastX128.padStart(80)}`);
+		console.log(`${"liquidity".padEnd(30)}\t${liquidity.padStart(80)}`);
+		console.log(`${"tokensOwed1".padEnd(30)}\t${tokensOwed1.padStart(80)}`);
+		
 		let fee0_ = 
 			bn(pool.feeGrowthGlobal0X128)
 			.minus(bn(feeGrowthOutside0X128Lower))
 			.minus(bn(feeGrowthOutside0X128Upper))
 			.minus(bn(feeGrowthInside0LastX128))
-			.div(bn(2).pow(128))
 			.multipliedBy(bn(liquidity))
+			.div(bn(2).pow(128))
 			.plus(bn(tokensOwed0))
 			.toString();
 		let fee1_ = 
@@ -376,8 +419,8 @@ class DeFi extends Obj {
 			.minus(bn(feeGrowthOutside1X128Lower))
 			.minus(bn(feeGrowthOutside1X128Upper))
 			.minus(bn(feeGrowthInside1LastX128))
-			.div(bn(2).pow(128))
 			.multipliedBy(bn(liquidity))
+			.div(bn(2).pow(128))
 			.plus(bn(tokensOwed1))
 			.toString();
 		
@@ -435,6 +478,26 @@ class DeFi extends Obj {
 			max1,
 		});
 	}
+	async toGetPositions(tokenIdA, tokenIdB, feeRate, maxCount = 0) {
+		let {defi} = this;
+		let {util} = defi;
+		let pool = await defi.toGetPool(tokenIdA, tokenIdB, feeRate);
+		let {address: addressPool} = pool;
+		let positionCount = await defi.toGetPositionCount();
+		maxCount ||= positionCount;
+		let result = [];
+		for (let i = 0; i < maxCount; i++) {
+			let index = positionCount - 1 - i;
+			let position = await defi.toGetPositionAt(index);
+			if (util.eq(position.pool.address, addressPool)) {
+				result.push(position);
+			}
+		}
+		return result;
+	}
 }
 
 export {DeFi};
+
+// https://web3js.readthedocs.io/en/v1.2.11/web3-eth-abi.html
+// https://docs.web3js.org/api
