@@ -207,6 +207,13 @@ class DeFi extends Obj {
 	rateToFee(rate) {
 		return cutil.asInteger(rate * this.FEE_RATE_K);
 	}
+	async toGetWTokAddress() {
+		let defi = this;
+		let {positionManager} = defi;
+		await positionManager.toGetAbi();
+		let address = await positionManager.toCallRead("WETH9");
+		return address;
+	}
 	async toGetPositionCount() {
 		let defi = this;
 		let {positionManager} = defi;
