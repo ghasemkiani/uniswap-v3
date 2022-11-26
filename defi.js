@@ -225,7 +225,7 @@ class DeFi extends Obj {
 		return [
 			"0x",
 			pools[0].tokenA.address.toLowerCase().substring(2),
-			...pools.map(pool => `${cutil.asInteger(pool.fee).toString(16).padStart(6, "0")}${pools[0].tokenB.address.toLowerCase().substring(2)}`),
+			...pools.map(pool => `${cutil.asInteger(pool.fee).toString(16).padStart(6, "0")}${pool.tokenB.address.toLowerCase().substring(2)}`),
 		].join("");
 	}
 	async toGetWTokAddress() {
