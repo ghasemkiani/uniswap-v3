@@ -156,10 +156,12 @@ class DeFi extends Obj {
 			account: null,
 			_factory: null,
 			_positionManager: null,
+			_quoter: null,
 			_router2: null,
 			
 			addressFactory: null,
 			addressPositionManager: null,
+			addressQuoter: null,
 			addressRouter2: null,
 			
 			FEE_RATE_K: 1e6,
@@ -189,6 +191,18 @@ class DeFi extends Obj {
 		let defi = this;
 		defi._positionManager = positionManager;
 	}
+	get quoter() {
+		let defi = this;
+		if (!defi._quoter) {
+			let {Contract, account, addressQuoter: address} = defi;
+			defi._quoter = new Contract({address, account});
+		}
+		return defi._quoter;
+	}
+	set quoter(quoter) {
+		let defi = this;
+		defi._quoter = quoter;
+	}
 	get router2() {
 		let defi = this;
 		if (!defi._router2) {
@@ -206,6 +220,13 @@ class DeFi extends Obj {
 	}
 	rateToFee(rate) {
 		return cutil.asInteger(rate * this.FEE_RATE_K);
+	}
+	path(pools) {
+		return [
+			"0x",
+			pools[0].tokenA.address.toLowerCase().substring(2),
+			...pools.map(pool => `${cutil.asInteger(pool.fee).toString(16).padStart(6, "0")}${pools[0].tokenB.address.toLowerCase().substring(2)}`),
+		].join("");
 	}
 	async toGetWTokAddress() {
 		let defi = this;
