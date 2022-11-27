@@ -165,6 +165,7 @@ class DeFi extends Obj {
 			addressRouter2: null,
 			
 			FEE_RATE_K: 1e6,
+			tolerance: 0.01,
 		});
 	}
 	get factory() {
@@ -221,13 +222,12 @@ class DeFi extends Obj {
 	rateToFee(rate) {
 		return cutil.asInteger(rate * this.FEE_RATE_K);
 	}
-	path(pools) {
+	pathFromPools(pools) {
 		let p = [
 			"0x",
 			pools[0].tokenA.address.toLowerCase().substring(2),
 			...pools.map(pool => `${cutil.asInteger(pool.fee).toString(16).toLowerCase().padStart(6, "0")}${pool.tokenB.address.toLowerCase().substring(2)}`),
 		].join("");
-		console.log(p);
 		return p;
 	}
 	pathFromTokenIdsAndFees(data) {
@@ -240,7 +240,6 @@ class DeFi extends Obj {
 			p += cutil.asInteger(defi.rateToFee(data[2 * i + 1])).toString(16).toLowerCase().padStart(6, "0");
 			p += util.tokenAddress(data[2 * i + 2]).toLowerCase().substring(2);
 		}
-		console.log(p);
 		return p;
 	}
 	async toGetWTokAddress() {
@@ -559,12 +558,12 @@ class DeFi extends Obj {
 		await tokenIn.toGetDecimals();
 		await tokenOut.toGetAbi();
 		await tokenOut.toGetDecimals();
-		if (amountIn & !amountIn_) {
+		if (amountIn && !amountIn_) {
 			amountIn_ = tokenIn.wrapNumber(amountIn);
 		} else if (amountIn_ & !amountIn) {
 			amountIn = tokenIn.unwrapNumber(amountIn_);
 		}
-		if (amountOut & !amountOut_) {
+		if (amountOut && !amountOut_) {
 			amountOut_ = tokenOut.wrapNumber(amountOut);
 		} else if (amountOut_ & !amountOut) {
 			amountOut = tokenOut.unwrapNumber(amountOut_);
@@ -580,6 +579,43 @@ class DeFi extends Obj {
 		let price = amountOut / amountIn;
 		let slippage = 1 - (price / priceExternal);
 		return {amountIn, amountIn_, amountOut, amountOut_, price, slippage};
+	}
+	async toSwap({pathData, amountIn, amountIn_, amountOut, amountOut_, priceExternal}) {
+		let defi = this;
+		let {account} = defi;
+		let {address} = account;
+		let {Token} = defi;
+		let {router2} = defi;
+		
+		await router2.toGetAbi();
+		let path = defi.pathFromTokenIdsAndFees(pathData);
+		let tokenIn = new Token(pathData[0]);
+		let tokenOut = new Token(pathData[pathData.length - 1]);
+		await tokenIn.toGetAbi();
+		await tokenIn.toGetDecimals();
+		await tokenOut.toGetAbi();
+		await tokenOut.toGetDecimals();
+		if (amountIn && !amountIn_) {
+			amountIn_ = tokenIn.wrapNumber(amountIn);
+		} else if (amountIn_ & !amountIn) {
+			amountIn = tokenIn.unwrapNumber(amountIn_);
+		}
+		if (amountOut && !amountOut_) {
+			amountOut_ = tokenOut.wrapNumber(amountOut);
+		} else if (amountOut_ & !amountOut) {
+			amountOut = tokenOut.unwrapNumber(amountOut_);
+		}
+		let recipient = address;
+		let result;
+		if (amountIn_) {
+			let amountOutMinimum_ = d(amountIn_).mul(d(priceExternal).mul(d(10).pow(tokenOut.decimals - tokenIn.decimals))).mul(d(1 - defi.tolerance)).toFixed(0);
+			result = await router2.toCallRead("exactInput", path, recipient, amountIn_, amountOutMinimum_);
+		} else if (amountOut_) {
+			let amountInMaximum_ = d(amountOut_).div(d(priceExternal).mul(d(10).pow(tokenIn.decimals - tokenOut.decimals))).mul(d(1 + defi.tolerance)).toFixed(0);
+			result = await quoter.toCallRead("exactOutput", path, recipient, amountOut_, amountInMaximum_);
+		}
+		
+		return result;
 	}
 }
 
