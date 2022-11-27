@@ -225,8 +225,20 @@ class DeFi extends Obj {
 		return [
 			"0x",
 			pools[0].tokenA.address.toLowerCase().substring(2),
-			...pools.map(pool => `${cutil.asInteger(pool.fee).toString(16).padStart(6, "0")}${pool.tokenB.address.toLowerCase().substring(2)}`),
+			...pools.map(pool => `${cutil.asInteger(pool.fee).toString(16).toLowerCase().padStart(6, "0")}${pool.tokenB.address.toLowerCase().substring(2)}`),
 		].join("");
+	}
+	pathFromTokenIdsAndFees(data) {
+		let defi = this;
+		let {util} = defi;
+		
+		let path = util.tokenAddress(data[0]);
+		let n = cutil.asInteger(data.length / 2);
+		for (let i = 0; i < n; i++) {
+			path += cutil.asInteger(data[2 * i + 1]).toString(16).toLowerCase().padStart(6, "0");
+			path += util.tokenAddress(data[2 * i + 2]).toLowerCase().substring(2);
+		}
+		return path;
 	}
 	async toGetWTokAddress() {
 		let defi = this;
@@ -530,6 +542,39 @@ class DeFi extends Obj {
 			}
 		}
 		return result;
+	}
+	async toQuote({pathData, amountIn, amountIn_, amountOut, amountOut_, priceExternal}) {
+		let defi = this;
+		let {Token} = defi;
+		let {quoter} = defi;
+		
+		let path = pathFromTokenIdsAndFees(pathData);
+		let tokenIn = new Token(pathData[0]);
+		let tokenOut = new Token(pathData[pathData.elngth - 1]);
+		await tokenIn.toGetAbi();
+		await tokenIn.toGetDecimals();
+		await tokenOut.toGetAbi();
+		await tokenOut.toGetDecimals();
+		if (amountIn & !amountIn_) {
+			amountIn_ = tokenIn.wrapNumber(amountIn);
+		} else if (amountIn_ & !amountIn) {
+			amountIn = tokenIn.unwrapNumber(amountIn_);
+		}
+		if (amountOut & !amountOut_) {
+			amountOut_ = tokenOut.wrapNumber(amountOut);
+		} else if (amountOut_ & !amountOut) {
+			amountOut = tokenOut.unwrapNumber(amountOut_);
+		}
+		if (amountIn_) {
+			amountOut_ = await quoter.toCallRead("quoteExactInput", path, amountIn);
+			amountOut = tokenOut.unwrapNumber(amountOut_);
+		} else if (amountOut_) {
+			amountIn_ = await quoter.toCallRead("quoteExactOutput", path, amountOut);
+			amountIn = tokenOut.unwrapNumber(amountIn_);
+		}
+		let price = amountB / amountA;
+		let slippage = 1 - (price / priceExternal);
+		return {amountIn, amountIn_, amountOut, amountOut_, slippage};
 	}
 }
 
