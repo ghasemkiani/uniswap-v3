@@ -222,23 +222,26 @@ class DeFi extends Obj {
 		return cutil.asInteger(rate * this.FEE_RATE_K);
 	}
 	path(pools) {
-		return [
+		let p = [
 			"0x",
 			pools[0].tokenA.address.toLowerCase().substring(2),
 			...pools.map(pool => `${cutil.asInteger(pool.fee).toString(16).toLowerCase().padStart(6, "0")}${pool.tokenB.address.toLowerCase().substring(2)}`),
 		].join("");
+		console.log(p);
+		return p;
 	}
 	pathFromTokenIdsAndFees(data) {
 		let defi = this;
 		let {util} = defi;
 		
-		let path = util.tokenAddress(data[0]);
+		let p = util.tokenAddress(data[0]).toLowerCase();
 		let n = cutil.asInteger(data.length / 2);
 		for (let i = 0; i < n; i++) {
-			path += cutil.asInteger(data[2 * i + 1]).toString(16).toLowerCase().padStart(6, "0");
-			path += util.tokenAddress(data[2 * i + 2]).toLowerCase().substring(2);
+			p += cutil.asInteger(rateToFee(data[2 * i + 1])).toString(16).toLowerCase().padStart(6, "0");
+			p += util.tokenAddress(data[2 * i + 2]).toLowerCase().substring(2);
 		}
-		return path;
+		console.log(p);
+		return p;
 	}
 	async toGetWTokAddress() {
 		let defi = this;
@@ -548,7 +551,8 @@ class DeFi extends Obj {
 		let {Token} = defi;
 		let {quoter} = defi;
 		
-		let path = pathFromTokenIdsAndFees(pathData);
+		await quoter.toGetAbi();
+		let path = defi.pathFromTokenIdsAndFees(pathData);
 		let tokenIn = new Token(pathData[0]);
 		let tokenOut = new Token(pathData[pathData.length - 1]);
 		await tokenIn.toGetAbi();
@@ -565,7 +569,7 @@ class DeFi extends Obj {
 		} else if (amountOut_ & !amountOut) {
 			amountOut = tokenOut.unwrapNumber(amountOut_);
 		}
-		let price = amountB / amountA;
+		let price = amountOut / amountIn;
 		let slippage;
 		if (amountIn_) {
 			amountOut_ = await quoter.toCallRead("quoteExactInput", path, amountIn);
