@@ -550,7 +550,7 @@ class DeFi extends Obj {
 		
 		let path = pathFromTokenIdsAndFees(pathData);
 		let tokenIn = new Token(pathData[0]);
-		let tokenOut = new Token(pathData[pathData.elngth - 1]);
+		let tokenOut = new Token(pathData[pathData.length - 1]);
 		await tokenIn.toGetAbi();
 		await tokenIn.toGetDecimals();
 		await tokenOut.toGetAbi();
