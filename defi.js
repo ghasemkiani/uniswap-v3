@@ -237,7 +237,7 @@ class DeFi extends Obj {
 		let p = util.tokenAddress(data[0]).toLowerCase();
 		let n = cutil.asInteger(data.length / 2);
 		for (let i = 0; i < n; i++) {
-			p += cutil.asInteger(rateToFee(data[2 * i + 1])).toString(16).toLowerCase().padStart(6, "0");
+			p += cutil.asInteger(defi.rateToFee(data[2 * i + 1])).toString(16).toLowerCase().padStart(6, "0");
 			p += util.tokenAddress(data[2 * i + 2]).toLowerCase().substring(2);
 		}
 		console.log(p);
@@ -572,11 +572,11 @@ class DeFi extends Obj {
 		let price = amountOut / amountIn;
 		let slippage;
 		if (amountIn_) {
-			amountOut_ = await quoter.toCallRead("quoteExactInput", path, amountIn);
+			amountOut_ = await quoter.toCallRead("quoteExactInput", path, amountIn_);
 			amountOut = tokenOut.unwrapNumber(amountOut_);
 			slippage = 1 - (price / priceExternal);
 		} else if (amountOut_) {
-			amountIn_ = await quoter.toCallRead("quoteExactOutput", path, amountOut);
+			amountIn_ = await quoter.toCallRead("quoteExactOutput", path, amountOut_);
 			amountIn = tokenOut.unwrapNumber(amountIn_);
 			slippage = 1 - (priceExternal / price);
 		}
