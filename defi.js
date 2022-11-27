@@ -569,18 +569,16 @@ class DeFi extends Obj {
 		} else if (amountOut_ & !amountOut) {
 			amountOut = tokenOut.unwrapNumber(amountOut_);
 		}
-		let price = amountOut / amountIn;
-		let slippage;
 		if (amountIn_) {
 			amountOut_ = await quoter.toCallRead("quoteExactInput", path, amountIn_);
 			amountOut = tokenOut.unwrapNumber(amountOut_);
-			slippage = 1 - (price / priceExternal);
 		} else if (amountOut_) {
 			amountIn_ = await quoter.toCallRead("quoteExactOutput", path, amountOut_);
 			amountIn = tokenOut.unwrapNumber(amountIn_);
-			slippage = 1 - (priceExternal / price);
 		}
 		
+		let price = amountOut / amountIn;
+		let slippage = 1 - (price / priceExternal);
 		return {amountIn, amountIn_, amountOut, amountOut_, price, slippage};
 	}
 }
