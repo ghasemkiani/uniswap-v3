@@ -34,11 +34,22 @@ class Pool extends Obj {
 			observationCardinalityNext: null,
 			feeProtocol: null,
 			unlocked: null,
-			
-			price: null,
 		});
 	}
-	
+	// tick must be set
+	get price$_() {
+		return d(1.0001).pow(this.tick);
+	}
+	get price_() {
+		return this.price$_.toString();
+	}
+	// tick and tokens must be set
+	get price$() {
+		return this.price$_.mul(10 ** (this.token0.decimals - this.token1.decimals));
+	}
+	get price() {
+		return this.price$.toNumber();
+	}
 }
 
 class Position extends Obj {
@@ -226,10 +237,14 @@ class DeFi extends Obj {
 	set tokens(tokens) {
 		this._tokens = tokens;
 	}
-	token(tokenId) {
+	token(arg) {
 		let defi = this;
 		let {Token} = defi;
-		return tokenId in defi.tokens ? defi.tokens[tokenId] : (defi.tokens[tokenId] = new Token(tokenId));
+		if (cutil.isString(arg)) {
+			arg = {id: arg};
+		}
+		let {id: tokenId} = arg;
+		return (tokenId in defi.tokens) ? defi.tokens[tokenId] : (defi.tokens[tokenId] = new Token(arg));
 	}
 	feeToRate(fee) {
 		return cutil.asNumber(fee) / this.FEE_RATE_K;
@@ -301,8 +316,13 @@ class DeFi extends Obj {
 		let tokenA = defi.token({id: tokenIdA, account});
 		let tokenB = defi.token({id: tokenIdB, account});
 		
+		console.log(tokenA);
+		console.log(tokenB);
+		
 		await factory.toGetAbi();
+		
 		let address = await factory.toCallRead("getPool", tokenA.address, tokenB.address, defi.rateToFee(feeRate));
+		
 		let pool = await defi.toGetPoolByAddress(address);
 		
 		return cutil.assign(pool, {
@@ -389,8 +409,6 @@ class DeFi extends Obj {
 			throw e;
 		}
 		
-		let price = d(1.0001).pow(tick).mul(10 ** (token0.decimals - token1.decimals)).toString();
-		
 		return new Pool({
 			defi,
 			address,
@@ -416,8 +434,6 @@ class DeFi extends Obj {
 			observationCardinalityNext,
 			feeProtocol,
 			unlocked,
-			
-			price,
 		});
 	}
 	async toGetPositionAt(index) {
@@ -452,9 +468,9 @@ class DeFi extends Obj {
 			tokensOwed0,
 			tokensOwed1,
 		} = await positionManager.toCallRead("positions", id);
-		
 		let tokenId0 = util.tokenId(addressToken0);
 		let tokenId1 = util.tokenId(addressToken1);
+		
 		let pool = await defi.toGetPool(tokenId0, tokenId1, defi.feeToRate(fee));
 		let {feeGrowthOutside0X128: feeGrowthOutside0X128Lower, feeGrowthOutside1X128: feeGrowthOutside1X128Lower} = await pool.contract.toCallRead("ticks", cutil.asNumber(tickLower));
 		let {feeGrowthOutside0X128: feeGrowthOutside0X128Upper, feeGrowthOutside1X128: feeGrowthOutside1X128Upper} = await pool.contract.toCallRead("ticks", cutil.asNumber(tickUpper));
