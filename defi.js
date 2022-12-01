@@ -217,6 +217,20 @@ class DeFi extends Obj {
 		let defi = this;
 		defi._router2 = router2;
 	}
+	get tokens() {
+		if (!this._tokens) {
+			this._tokens = {};
+		}
+		return this._tokens;
+	}
+	set tokens(tokens) {
+		this._tokens = tokens;
+	}
+	token(tokenId) {
+		let defi = this;
+		let {Token} = defi;
+		return tokenId in defi.tokens ? defi.tokens[tokenId] : (defi.tokens[tokenId] = new Token(tokenId));
+	}
 	feeToRate(fee) {
 		return cutil.asNumber(fee) / this.FEE_RATE_K;
 	}
@@ -282,11 +296,10 @@ class DeFi extends Obj {
 		let defi = this;
 		let {account} = defi;
 		let {factory} = defi;
-		let {Token} = defi;
 		let {Pool} = defi;
 		
-		let tokenA = new Token({id: tokenIdA, account});
-		let tokenB = new Token({id: tokenIdB, account});
+		let tokenA = defi.token({id: tokenIdA, account});
+		let tokenB = defi.token({id: tokenIdB, account});
 		
 		await factory.toGetAbi();
 		let address = await factory.toCallRead("getPool", tokenA.address, tokenB.address, defi.rateToFee(feeRate));
@@ -305,8 +318,8 @@ class DeFi extends Obj {
 		let {account} = defi;
 		let {factory} = defi;
 		
-		let tokenA = new Token({id: tokenIdA, account});
-		let tokenB = new Token({id: tokenIdB, account});
+		let tokenA = defi.token({id: tokenIdA, account});
+		let tokenB = defi.token({id: tokenIdB, account});
 		
 		await factory.toGetAbi();
 		let address = await factory.toCallRead("createPool", tokenA.address, tokenB.address, defi.rateToFee(feeRate));
@@ -319,7 +332,6 @@ class DeFi extends Obj {
 		let {Pool} = defi;
 		let {util} = defi;
 		let {Contract} = defi;
-		let {Token} = defi;
 		
 		let contract = new Contract({address});
 		await contract.toGetAbi();
@@ -359,8 +371,8 @@ class DeFi extends Obj {
 			unlocked,
 		} = slot0;
 		
-		let token0 = new Token({account, address: addressToken0, id: util.tokenId(addressToken0)});
-		let token1 = new Token({account, address: addressToken1, id: util.tokenId(addressToken1)});
+		let token0 = defi.token({account, address: addressToken0, id: util.tokenId(addressToken0)});
+		let token1 = defi.token({account, address: addressToken1, id: util.tokenId(addressToken1)});
 		
 		try {
 			await token0.toGetAbi();
@@ -558,13 +570,12 @@ class DeFi extends Obj {
 	}
 	async toQuote({pathInfo, amountIn, amountIn_, amountOut, amountOut_, priceExternal}) {
 		let defi = this;
-		let {Token} = defi;
 		let {quoter} = defi;
 		
 		await quoter.toGetAbi();
 		let path = defi.pathFromTokenIdsAndFees(pathInfo);
-		let tokenIn = new Token(pathInfo[0]);
-		let tokenOut = new Token(pathInfo[pathInfo.length - 1]);
+		let tokenIn = defi.token(pathInfo[0]);
+		let tokenOut = defi.token(pathInfo[pathInfo.length - 1]);
 		await tokenIn.toGetAbi();
 		await tokenIn.toGetDecimals();
 		await tokenOut.toGetAbi();
@@ -595,13 +606,12 @@ class DeFi extends Obj {
 		let defi = this;
 		let {account} = defi;
 		let {address} = account;
-		let {Token} = defi;
 		let {router2} = defi;
 		
 		await router2.toGetAbi();
 		let path = defi.pathFromTokenIdsAndFees(pathInfo);
-		let tokenIn = new Token(pathInfo[0]);
-		let tokenOut = new Token(pathInfo[pathInfo.length - 1]);
+		let tokenIn = defi.token(pathInfo[0]);
+		let tokenOut = defi.token(pathInfo[pathInfo.length - 1]);
 		await tokenIn.toGetAbi();
 		await tokenIn.toGetDecimals();
 		await tokenOut.toGetAbi();
@@ -636,30 +646,14 @@ class DeFi extends Obj {
 		
 		return result;
 	}
-	get tokens() {
-		if (!this._tokens) {
-			this._tokens = {};
-		}
-		return this._tokens;
-	}
-	set tokens(tokens) {
-		this._tokens = tokens;
-	}
-	token(tokenId) {
-		let defi = this;
-		let {Token} = defi;
-		return tokenId in defi.tokens ? defi.tokens[tokenId] : (defi.tokens[tokenId] = new Token(tokenId));
-	}
 	async toQuoteRoutes({pathInfos, amountIn, amountIn_, amountOut, amountOut_, priceExternal}) {
 		let defi = this;
 		let {account} = defi;
 		let {address} = account;
-		let {Token} = defi;
 		let {quoter} = defi;
 		
 		await quoter.toGetAbi();
 		
-		let priceExternal_ = d(priceExternal).mul(d(10).pow(tokenOut.decimals - tokenIn.decimals));
 		
 		let pathInfo = pathInfos[0];
 		let tokenIn = defi.token(pathInfo[0]);
@@ -668,6 +662,7 @@ class DeFi extends Obj {
 		await tokenIn.toGetDecimals();
 		await tokenOut.toGetAbi();
 		await tokenOut.toGetDecimals();
+		let priceExternal_ = d(priceExternal).mul(d(10).pow(tokenOut.decimals - tokenIn.decimals));
 		if (amountIn && !amountIn_) {
 			amountIn_ = tokenIn.wrapNumber(amountIn);
 		} else if (amountIn_ & !amountIn) {
