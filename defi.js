@@ -153,6 +153,7 @@ class DeFi extends Obj {
 			Pool,
 			Position,
 			
+			_tokens: null,
 			account: null,
 			_factory: null,
 			_positionManager: null,
@@ -361,10 +362,20 @@ class DeFi extends Obj {
 		let token0 = new Token({account, address: addressToken0, id: util.tokenId(addressToken0)});
 		let token1 = new Token({account, address: addressToken1, id: util.tokenId(addressToken1)});
 		
-		await token0.toGetAbi();
-		await token1.toGetAbi();
-		await token0.toGetDecimals();
-		await token1.toGetDecimals();
+		try {
+			await token0.toGetAbi();
+			await token0.toGetDecimals();
+		} catch(e) {
+			console.log(`Error in getting decimals for ${token0.address}`);
+			throw e;
+		}
+		try {
+			await token1.toGetAbi();
+			await token1.toGetDecimals();
+		} catch(e) {
+			console.log(`Error in getting decimals for ${token1.address}`);
+			throw e;
+		}
 		
 		let price = d(1.0001).pow(tick).mul(10 ** (token0.decimals - token1.decimals)).toString();
 		
@@ -545,15 +556,15 @@ class DeFi extends Obj {
 		}
 		return result;
 	}
-	async toQuote({pathData, amountIn, amountIn_, amountOut, amountOut_, priceExternal}) {
+	async toQuote({pathInfo, amountIn, amountIn_, amountOut, amountOut_, priceExternal}) {
 		let defi = this;
 		let {Token} = defi;
 		let {quoter} = defi;
 		
 		await quoter.toGetAbi();
-		let path = defi.pathFromTokenIdsAndFees(pathData);
-		let tokenIn = new Token(pathData[0]);
-		let tokenOut = new Token(pathData[pathData.length - 1]);
+		let path = defi.pathFromTokenIdsAndFees(pathInfo);
+		let tokenIn = new Token(pathInfo[0]);
+		let tokenOut = new Token(pathInfo[pathInfo.length - 1]);
 		await tokenIn.toGetAbi();
 		await tokenIn.toGetDecimals();
 		await tokenOut.toGetAbi();
@@ -580,7 +591,7 @@ class DeFi extends Obj {
 		let slippage = 1 - (price / priceExternal);
 		return {amountIn, amountIn_, amountOut, amountOut_, price, slippage};
 	}
-	async toSwap({pathData, amountIn, amountIn_, amountOut, amountOut_, priceExternal}) {
+	async toSwap({pathInfo, amountIn, amountIn_, amountOut, amountOut_, priceExternal}) {
 		let defi = this;
 		let {account} = defi;
 		let {address} = account;
@@ -588,9 +599,71 @@ class DeFi extends Obj {
 		let {router2} = defi;
 		
 		await router2.toGetAbi();
-		let path = defi.pathFromTokenIdsAndFees(pathData);
-		let tokenIn = new Token(pathData[0]);
-		let tokenOut = new Token(pathData[pathData.length - 1]);
+		let path = defi.pathFromTokenIdsAndFees(pathInfo);
+		let tokenIn = new Token(pathInfo[0]);
+		let tokenOut = new Token(pathInfo[pathInfo.length - 1]);
+		await tokenIn.toGetAbi();
+		await tokenIn.toGetDecimals();
+		await tokenOut.toGetAbi();
+		await tokenOut.toGetDecimals();
+		let priceExternal_ = d(priceExternal).mul(d(10).pow(tokenOut.decimals - tokenIn.decimals));
+		if (amountIn && !amountIn_) {
+			amountIn_ = tokenIn.wrapNumber(amountIn);
+		} else if (amountIn_ & !amountIn) {
+			amountIn = tokenIn.unwrapNumber(amountIn_);
+		}
+		if (amountOut && !amountOut_) {
+			amountOut_ = tokenOut.wrapNumber(amountOut);
+		} else if (amountOut_ & !amountOut) {
+			amountOut = tokenOut.unwrapNumber(amountOut_);
+		}
+		let recipient = address;
+		let result;
+		let value = 0;
+		if (amountIn_) {
+			let amountOutMinimum_ = d(amountIn_).mul(priceExternal_).mul(d(1 - defi.tolerance)).toFixed(0);
+			if (util.isWTok(tokenIn)) {
+				value = amountIn_;
+			}
+			result = await router2.toCallWriteWithValue(value, "exactInput", path, recipient, amountIn_, amountOutMinimum_);
+		} else if (amountOut_) {
+			let amountInMaximum_ = d(amountOut_).div(priceExternal_).mul(d(1 + defi.tolerance)).toFixed(0);
+			if (util.isWTok(tokenIn)) {
+				value = amountInMaximum_;
+			}
+			result = await router2.toCallWriteWithValue(value, "exactOutput", path, recipient, amountOut_, amountInMaximum_);
+		}
+		
+		return result;
+	}
+	get tokens() {
+		if (!this._tokens) {
+			this._tokens = {};
+		}
+		return this._tokens;
+	}
+	set tokens(tokens) {
+		this._tokens = tokens;
+	}
+	token(tokenId) {
+		let defi = this;
+		let {Token} = defi;
+		return tokenId in defi.tokens ? defi.tokens[tokenId] : (defi.tokens[tokenId] = new Token(tokenId));
+	}
+	async toQuoteRoutes({pathInfos, amountIn, amountIn_, amountOut, amountOut_, priceExternal}) {
+		let defi = this;
+		let {account} = defi;
+		let {address} = account;
+		let {Token} = defi;
+		let {quoter} = defi;
+		
+		await quoter.toGetAbi();
+		
+		let priceExternal_ = d(priceExternal).mul(d(10).pow(tokenOut.decimals - tokenIn.decimals));
+		
+		let pathInfo = pathInfos[0];
+		let tokenIn = defi.token(pathInfo[0]);
+		let tokenOut = defi.token(pathInfo[pathInfo.length - 1]);
 		await tokenIn.toGetAbi();
 		await tokenIn.toGetDecimals();
 		await tokenOut.toGetAbi();
@@ -605,17 +678,28 @@ class DeFi extends Obj {
 		} else if (amountOut_ & !amountOut) {
 			amountOut = tokenOut.unwrapNumber(amountOut_);
 		}
-		let recipient = address;
-		let result;
-		if (amountIn_) {
-			let amountOutMinimum_ = d(amountIn_).mul(d(priceExternal).mul(d(10).pow(tokenOut.decimals - tokenIn.decimals))).mul(d(1 - defi.tolerance)).toFixed(0);
-			result = await router2.toCallRead("exactInput", path, recipient, amountIn_, amountOutMinimum_);
-		} else if (amountOut_) {
-			let amountInMaximum_ = d(amountOut_).div(d(priceExternal).mul(d(10).pow(tokenIn.decimals - tokenOut.decimals))).mul(d(1 + defi.tolerance)).toFixed(0);
-			result = await quoter.toCallRead("exactOutput", path, recipient, amountOut_, amountInMaximum_);
+		let isForward = !!amountIn_;
+		
+		let routes = pathInfos.map(pathInfo => ({pathInfo}));
+		
+		for (let route of routes) {
+			let {pathInfo} = route;
+			let path = defi.pathFromTokenIdsAndFees(pathInfo);
+			if (isForward) {
+				amountOut_ = await quoter.toCallRead("quoteExactInput", path, amountIn_);
+				amountOut = tokenOut.unwrapNumber(amountOut_);
+			} else {
+				amountIn_ = await quoter.toCallRead("quoteExactOutput", path, amountOut_);
+				amountIn = tokenOut.unwrapNumber(amountIn_);
+			}
+			
+			let price = amountOut / amountIn;
+			let slippage = 1 - (price / priceExternal);
+			cutil.assign(route, {path, amountIn, amountIn_, amountOut, amountOut_, price, slippage});
 		}
 		
-		return result;
+		routes.sort(({slippage: a}, {slippage: b}) => a - b);
+		return routes;
 	}
 }
 
