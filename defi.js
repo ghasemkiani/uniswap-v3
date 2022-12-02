@@ -354,9 +354,6 @@ class DeFi extends Obj {
 		let tokenA = defi.token({id: tokenIdA, account});
 		let tokenB = defi.token({id: tokenIdB, account});
 		
-		console.log(tokenA);
-		console.log(tokenB);
-		
 		await factory.toGetAbi();
 		
 		let address = await factory.toCallRead("getPool", tokenA.address, tokenB.address, defi.rateToFee(feeRate));
