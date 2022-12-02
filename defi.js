@@ -314,25 +314,24 @@ class Position extends Obj {
 				price_$.mul(amount0_$)
 			)
 		));
-		let delta1_$ = delta0_$.mul(price_$);
+		let delta1_$ = delta0_$.mul(price_$).mul(-1);
 		let isForward = delta0_$.gt(0);
 		let routes, route;
 		if (isForward) {
 			let amountIn_ = delta0_$.toFixed(0);
 			routes = await defi.toQuoteRoutes({pathInfos, amountIn_, priceExternal});
 			route = routes[0];
-			amnt0_$ = amnt0_$.minus(delta0_$);
-			amnt1_$ = amnt1_$.plus(d(route.amountOut_));
+			delta1_$ = d(route.amountOut_).mul(-1);
 		} else {
 			pathInfos = pathInfos.map(pathInfo => pathInfo.reverse());
-			let amountIn_ = delta1_$.mul(-1).toFixed(0);
+			let amountIn_ = delta1_$.toFixed(0);
 			routes = await defi.toQuoteRoutes({pathInfos, amountIn_, priceExternal: d(priceExternal).pow(-1).toNumber()});
 			route = routes[0];
-			amnt1_$ = amnt1_$.minus(delta1_$.mul(-1));
-			amnt0_$ = amnt0_$.plus(d(route.amountOut_));
+			delta0_$ = d(route.amountOut_).mul(-1);
 		}
-		
-		return {amnt0_$, amnt1_$, isForward, route, routes};
+		let amt0_$ = amnt0_$.minus(delta0_$);
+		let amt1_$ = amnt1_$.minus(delta1_$);
+		return {amt0_$, amt1_$, delta0_$, delta1_$, isForward, route, routes};
 	}
 }
 
