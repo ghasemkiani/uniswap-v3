@@ -36,16 +36,14 @@ class Pool extends Obj {
 			unlocked: null,
 		});
 	}
-	// tick must be set
-	get price$_() {
+	get price_$() {
 		return d(1.0001).pow(this.tick);
 	}
 	get price_() {
-		return this.price$_.toString();
+		return this.price_$.toString();
 	}
-	// tick and tokens must be set
 	get price$() {
-		return this.price$_.mul(10 ** (this.token0.decimals - this.token1.decimals));
+		return this.price_$.mul(10 ** (this.token0.decimals - this.token1.decimals));
 	}
 	get price() {
 		return this.price$.toNumber();
@@ -83,19 +81,59 @@ class Position extends Obj {
 			fee0: null,
 			fee1: null,
 			
-			priceLower: null,
-			priceUpper: null,
-			
 			amount0_: null,
 			amount1_: null,
 			amount0: null,
 			amount1: null,
-			
-			max0_: null,
-			max1_: null,
-			max0: null,
-			max1: null,
 		});
+	}
+	get max0_$() {
+		return d(this.liquidity).mul(d(1.0001).pow(this.pool.tick * -0.5).minus(d(1.0001).pow(this.tickUpper * -0.5)));
+	}
+	get max1_$() {
+		return d(this.liquidity).mul(d(1.0001).pow(this.pool.tick * +0.5).minus(d(1.0001).pow(this.tickLower * +0.5)));
+	}
+	get max0$() {
+		return this.max0_$.div(10 ** this.pool.token0.decimals);
+	}
+	get max1$() {
+		return this.max1_$.div(10 ** this.pool.token1.decimals);
+	}
+	get max0_() {
+		return this.max0_$.toFixed(0);
+	}
+	get max1_() {
+		return this.max1_$.toFixed(0);
+	}
+	get max0() {
+		return this.max0$.toNumber();
+	}
+	get max1() {
+		return this.max1$.toNumber();
+	}
+	get priceLower_$() {
+		return d(1.0001).pow(this.tickLower);
+	}
+	get priceLower_() {
+		return this.priceLower_$.toString();
+	}
+	get priceLower$() {
+		return this.priceLower_$.mul(10 ** (this.pool.token0.decimals - this.pool.token1.decimals));
+	}
+	get priceLower() {
+		return this.priceLower$.toNumber();
+	}
+	get priceUpper_$() {
+		return d(1.0001).pow(this.tickUpper);
+	}
+	get priceUpper_() {
+		return this.priceUpper_$.toString();
+	}
+	get priceUpper$() {
+		return this.priceUpper_$.mul(10 ** (this.pool.token0.decimals - this.pool.token1.decimals));
+	}
+	get priceUpper() {
+		return this.priceUpper$.toNumber();
 	}
 	async toCollect(recipient = null) {
 		let position = this;
@@ -517,20 +555,11 @@ class DeFi extends Obj {
 		let fee0 = pool.token0.unwrapNumber(fee0_);
 		let fee1 = pool.token1.unwrapNumber(fee1_);
 		
-		let priceLower = d(1.0001).pow(tickLower).mul(10 ** (pool.token0.decimals - pool.token1.decimals)).toString();
-		let priceUpper = d(1.0001).pow(tickUpper).mul(10 ** (pool.token0.decimals - pool.token1.decimals)).toString();
-		
 		let amount0_ = d(liquidity).mul(d(1.0001).pow(pool.tick * -0.5).minus(d(1.0001).pow(tickUpper * -0.5))).toFixed(0);
 		let amount1_ = d(liquidity).mul(d(1.0001).pow(pool.tick * +0.5).minus(d(1.0001).pow(tickLower * +0.5))).toFixed(0);
 		
 		let amount0 = pool.token0.unwrapNumber(amount0_);
 		let amount1 = pool.token1.unwrapNumber(amount1_);
-		
-		let max0_ = d(liquidity).mul(d(1.0001).pow(tickLower * -0.5).minus(d(1.0001).pow(tickUpper * -0.5))).toFixed(0);
-		let max1_ = d(liquidity).mul(d(1.0001).pow(tickUpper * +0.5).minus(d(1.0001).pow(tickLower * +0.5))).toFixed(0);
-		
-		let max0 = pool.token0.unwrapNumber(max0_);
-		let max1 = pool.token1.unwrapNumber(max1_);
 		
 		return new Position({
 			defi,
@@ -552,16 +581,10 @@ class DeFi extends Obj {
 			fee1_,
 			fee0,
 			fee1,
-			priceLower,
-			priceUpper,
 			amount0_,
 			amount1_,
 			amount0,
 			amount1,
-			max0_,
-			max1_,
-			max0,
-			max1,
 		});
 	}
 	async toGetPositions(tokenIdA, tokenIdB, feeRate, maxCount = 0, maxSearchCount = 0) {
