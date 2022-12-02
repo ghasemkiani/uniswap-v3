@@ -17,6 +17,10 @@ class Pool extends Obj {
 			feeRate: null,
 			tokenA: null,
 			tokenB: null,
+			token0: null,
+			token1: null,
+			tokenId0: null,
+			tokenId1: null,
 			address: null,
 			contract: null,
 			// immutables
@@ -284,6 +288,52 @@ class Position extends Obj {
 			collected1,
 		};
 	}
+	async toProportionalize({amnt0_$, amnt1_$, priceExternal, pathInfos}) {
+		let position = this;
+		let {defi, amount0_$, amount1_$, pool: {price_$, fee, tokenId0, tokenId1, token0: {decimals: decimals0}, token1: {decimals: decimals1}}} = position;
+		amnt0_$ = d(amnt0_$);
+		amnt1_$ = d(amnt1_$);
+		if (priceExternal) {
+			price_$ = d(priceExternal).mul(d(10).pow(decimals2 - decimals1));
+		} else {
+			priceExternal = price_$.div(d(10).pow(decimals2 - decimals1)).toNumber();
+		}
+		if (!pathInfos) {
+			pathInfos = [[tokenId0, fee, tokenId1]];
+		}
+		let delta0_$ = d(
+			d(
+				amnt0_$.mul(amount1_$)
+			).minus(
+				amnt1_$.mul(amount0_$)
+			)
+		).div(d(
+			d(
+				amount1_$
+			).plus(
+				price_$.mul(amount0_$)
+			)
+		));
+		let delta1_$ = delta0_$.mul(price_$);
+		let isForward = delta0_$.gt(0);
+		let routes, route;
+		if (isForward) {
+			let amountIn_ = delta0_$.toFixed(0);
+			routes = await defi.toQuoteRoutes({pathInfos, amountIn_, priceExternal});
+			route = routes[0];
+			amnt0_$ = amnt0_$.minus(delta0_$);
+			amnt1_$ = amnt1_$.plus(d(route.amountOut_));
+		} else {
+			pathInfos = pathInfos.map(pathInfo => pathInfo.reverse());
+			let amountIn_ = delta1_$.mul(-1).toFixed(0);
+			routes = await defi.toQuoteRoutes({pathInfos, amountIn_, priceExternal: d(priceExternal).pow(-1).toNumber()});
+			route = routes[0];
+			amnt1_$ = amnt1_$.minus(delta1_$.mul(-1));
+			amnt0_$ = amnt0_$.plus(d(route.amountOut_));
+		}
+		
+		return {amnt0_$, amnt1_$, isForward, route, routes};
+	}
 }
 
 class DeFi extends Obj {
@@ -524,6 +574,8 @@ class DeFi extends Obj {
 		
 		let token0 = defi.token({account, address: addressToken0, id: util.tokenId(addressToken0)});
 		let token1 = defi.token({account, address: addressToken1, id: util.tokenId(addressToken1)});
+		let tokenId0 = util.tokenId(token0.address);
+		let tokenId1 = util.tokenId(token1.address);
 		
 		try {
 			await token0.toGetAbi();
@@ -546,6 +598,8 @@ class DeFi extends Obj {
 			contract,
 			token0,
 			token1,
+			tokenId0,
+			tokenId1,
 			// immutables
 			addressFactory,
 			addressToken0,
