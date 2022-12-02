@@ -1,8 +1,12 @@
-import bn from "bignumber.js";
 import d from "decimal.js";
 
 import {cutil} from "@ghasemkiani/base";
 import {Obj} from "@ghasemkiani/base";
+
+const PRECISION = 30;
+if (d.precision < PRECISION) {
+	d.set({precision: PRECISION});
+}
 
 class Pool extends Obj {
 	static {
@@ -68,10 +72,6 @@ class Position extends Obj {
 			liquidity: null,
 			feeGrowthInside0LastX128: null,
 			feeGrowthInside1LastX128: null,
-			feeGrowthOutside0X128Lower: null,
-			feeGrowthOutside0X128Upper: null,
-			feeGrowthOutside1X128Lower: null,
-			feeGrowthOutside1X128Upper: null,
 			tokensOwed0: null,
 			tokensOwed1: null,
 			
@@ -189,6 +189,48 @@ class Position extends Obj {
 	get fee1() {
 		return this.fee1$.toNumber();
 	}
+	get total0_$() {
+		return this.amount0_$.plus(this.amount1_$.div(this.pool.price_$));
+	}
+	get total0_() {
+		return this.total0_$.toFixed(0);
+	}
+	get total0$() {
+		return this.total0_$.div(10 ** this.pool.token0.decimals);
+	}
+	get total0() {
+		return this.total0$.toNumber();
+	}
+	get total1_$() {
+		return this.amount1_$.plus(this.amount0_$.mul(this.pool.price_$));
+	}
+	get total1_() {
+		return this.total1_$.toFixed(1);
+	}
+	get total1$() {
+		return this.total1_$.div(10 ** this.pool.token1.decimals);
+	}
+	get total1() {
+		return this.total1$.toNumber();
+	}
+	get r0$() {
+		return this.amount0_$.div(this.total0_$);
+	}
+	get r0() {
+		return this.r0$.toNumber();
+	}
+	get r1$() {
+		return this.amount1_$.div(this.total1_$);
+	}
+	get r1() {
+		return this.r1$.toNumber();
+	}
+	get ratio$() {
+		return this.amount1_$.div(this.amount0_$);
+	}
+	get ratio() {
+		return this.ratio$.toNumber();
+	}
 	async toCollect(recipient = null) {
 		let position = this;
 		let {defi} = position;
@@ -207,8 +249,8 @@ class Position extends Obj {
 		if (!recipient) {
 			recipient = address;
 		}
-		let amount0Max = bn(2).pow(128).minus(1).toFixed(0);
-		let amount1Max = bn(2).pow(128).minus(1).toFixed(0);
+		let amount0Max = d(2).pow(128).minus(1).toFixed(0);
+		let amount1Max = d(2).pow(128).minus(1).toFixed(0);
 		let result = await positionManager.toCallWrite("collect", [tokenId, recipient, amount0Max, amount1Max]);
 		// console.log(JSON.stringify(result, null, "\t"));
 		let collected0_ = null;
