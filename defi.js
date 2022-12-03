@@ -331,8 +331,8 @@ class Position extends Obj {
 			route = routes[0];
 			delta0_$ = d(route.amountOut_);
 		}
-		let delta0_ = delta0_$.toFixed(0);
-		let delta1_ = delta1_$.toFixed(0);
+		let delta0_ = delta0_$.abs().toFixed(0);
+		let delta1_ = delta1_$.abs().toFixed(0);
 		let amt0_ = amnt0_$.plus(delta0_$).toFixed(0);
 		let amt1_ = amnt1_$.plus(delta1_$).toFixed(0);
 		return {amt0_, amt1_, delta0_, delta1_, isForward, route, routes};
@@ -762,6 +762,7 @@ class DeFi extends Obj {
 	}
 	async toSwap({pathInfo, amountIn, amountIn_, amountOut, amountOut_, priceExternal}) {
 		let defi = this;
+		let {util} = defi;
 		let {account} = defi;
 		let {address} = account;
 		let {router2} = defi;
@@ -774,7 +775,7 @@ class DeFi extends Obj {
 		await tokenIn.toGetDecimals();
 		await tokenOut.toGetAbi();
 		await tokenOut.toGetDecimals();
-		let priceExternal_ = d(priceExternal).mul(d(10).pow(tokenOut.decimals - tokenIn.decimals));
+		let priceExternal_$ = d(priceExternal).mul(d(10).pow(tokenOut.decimals - tokenIn.decimals));
 		if (amountIn && !amountIn_) {
 			amountIn_ = tokenIn.wrapNumber(amountIn);
 		} else if (amountIn_ & !amountIn) {
@@ -789,17 +790,17 @@ class DeFi extends Obj {
 		let result;
 		let value = 0;
 		if (amountIn_) {
-			let amountOutMinimum_ = d(amountIn_).mul(priceExternal_).mul(d(1 - defi.tolerance)).toFixed(0);
+			let amountOutMinimum_ = d(amountIn_).mul(priceExternal_$).mul(d(1 - defi.tolerance)).toFixed(0);
 			if (util.isWTok(tokenIn)) {
 				value = amountIn_;
 			}
-			result = await router2.toCallWriteWithValue(value, "exactInput", path, recipient, amountIn_, amountOutMinimum_);
+			result = await router2.toCallWriteWithValue(value, "exactInput", [path, recipient, amountIn_, amountOutMinimum_]);
 		} else if (amountOut_) {
-			let amountInMaximum_ = d(amountOut_).div(priceExternal_).mul(d(1 + defi.tolerance)).toFixed(0);
+			let amountInMaximum_ = d(amountOut_).div(priceExternal_$).mul(d(1 + defi.tolerance)).toFixed(0);
 			if (util.isWTok(tokenIn)) {
 				value = amountInMaximum_;
 			}
-			result = await router2.toCallWriteWithValue(value, "exactOutput", path, recipient, amountOut_, amountInMaximum_);
+			result = await router2.toCallWriteWithValue(value, "exactOutput", [path, recipient, amountOut_, amountInMaximum_]);
 		}
 		
 		return result;
