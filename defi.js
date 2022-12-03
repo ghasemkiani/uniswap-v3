@@ -288,24 +288,24 @@ class Position extends Obj {
 			collected1,
 		};
 	}
-	async toProportionalize({amnt0_$, amnt1_$, priceExternal, pathInfos}) {
+	async toProportionalize({amnt0_, amnt1_, priceExternal, pathInfos}) {
 		let position = this;
-		let {defi, amount0_$, amount1_$, pool: {price_$, fee, tokenId0, tokenId1, token0: {decimals: decimals0}, token1: {decimals: decimals1}}} = position;
-		amnt0_$ = d(amnt0_$);
-		amnt1_$ = d(amnt1_$);
+		let {defi, amount0_$, amount1_$, pool: {price_$, feeRate, tokenId0, tokenId1, token0: {decimals: decimals0}, token1: {decimals: decimals1}}} = position;
+		let amnt0_$ = d(amnt0_);
+		let amnt1_$ = d(amnt1_);
 		if (priceExternal) {
-			price_$ = d(priceExternal).mul(d(10).pow(decimals2 - decimals1));
+			price_$ = d(priceExternal).mul(d(10).pow(decimals1 - decimals0));
 		} else {
-			priceExternal = price_$.div(d(10).pow(decimals2 - decimals1)).toNumber();
+			priceExternal = price_$.div(d(10).pow(decimals1 - decimals0)).toNumber();
 		}
 		if (!pathInfos) {
-			pathInfos = [[tokenId0, fee, tokenId1]];
+			pathInfos = [[tokenId0, feeRate, tokenId1]];
 		}
 		let delta0_$ = d(
 			d(
-				amnt0_$.mul(amount1_$)
-			).minus(
 				amnt1_$.mul(amount0_$)
+			).minus(
+				amnt0_$.mul(amount1_$)
 			)
 		).div(d(
 			d(
@@ -315,23 +315,27 @@ class Position extends Obj {
 			)
 		));
 		let delta1_$ = delta0_$.mul(price_$).mul(-1);
-		let isForward = delta0_$.gt(0);
+		let isForward = delta0_$.lt(0);
 		let routes, route;
 		if (isForward) {
-			let amountIn_ = delta0_$.toFixed(0);
+			let amountIn_ = delta0_$.mul(-1).toFixed(0);
+			console.log({pathInfos, amountIn_, priceExternal});
 			routes = await defi.toQuoteRoutes({pathInfos, amountIn_, priceExternal});
 			route = routes[0];
-			delta1_$ = d(route.amountOut_).mul(-1);
+			delta1_$ = d(route.amountOut_);
 		} else {
 			pathInfos = pathInfos.map(pathInfo => pathInfo.reverse());
-			let amountIn_ = delta1_$.toFixed(0);
+			let amountIn_ = delta1_$.mul(-1).toFixed(0);
+			console.log({pathInfos, amountIn_, priceExternal: d(priceExternal).pow(-1).toNumber()});
 			routes = await defi.toQuoteRoutes({pathInfos, amountIn_, priceExternal: d(priceExternal).pow(-1).toNumber()});
 			route = routes[0];
-			delta0_$ = d(route.amountOut_).mul(-1);
+			delta0_$ = d(route.amountOut_);
 		}
-		let amt0_$ = amnt0_$.minus(delta0_$);
-		let amt1_$ = amnt1_$.minus(delta1_$);
-		return {amt0_$, amt1_$, delta0_$, delta1_$, isForward, route, routes};
+		let delta0_ = delta0_$.toFixed(0);
+		let delta1_ = delta1_$.toFixed(0);
+		let amt0_ = amnt0_$.plus(delta0_$).toFixed(0);
+		let amt1_ = amnt1_$.plus(delta1_$).toFixed(0);
+		return {amt0_, amt1_, delta0_, delta1_, isForward, route, routes};
 	}
 }
 
@@ -816,15 +820,15 @@ class DeFi extends Obj {
 		await tokenIn.toGetDecimals();
 		await tokenOut.toGetAbi();
 		await tokenOut.toGetDecimals();
-		let priceExternal_ = d(priceExternal).mul(d(10).pow(tokenOut.decimals - tokenIn.decimals));
+		// let priceExternal_ = d(priceExternal).mul(d(10).pow(tokenOut.decimals - tokenIn.decimals));
 		if (amountIn && !amountIn_) {
 			amountIn_ = tokenIn.wrapNumber(amountIn);
-		} else if (amountIn_ & !amountIn) {
+		} else if (amountIn_ && !amountIn) {
 			amountIn = tokenIn.unwrapNumber(amountIn_);
 		}
 		if (amountOut && !amountOut_) {
 			amountOut_ = tokenOut.wrapNumber(amountOut);
-		} else if (amountOut_ & !amountOut) {
+		} else if (amountOut_ && !amountOut) {
 			amountOut = tokenOut.unwrapNumber(amountOut_);
 		}
 		let isForward = !!amountIn_;
