@@ -14,7 +14,6 @@ class Pool extends Obj {
 			defi: null,
 			tokenIdA: null,
 			tokenIdB: null,
-			feeRate: null,
 			tokenA: null,
 			tokenB: null,
 			token0: null,
@@ -43,6 +42,16 @@ class Pool extends Obj {
 			feeProtocol: null,
 			unlocked: null,
 		});
+	}
+	get feeRate() {
+		return cutil.isNil(this.fee) ? null : this.defi.feeToRate(this.fee);
+	}
+	set feeRate(feeRate) {
+		this.fee = cutil.isNil(feeRate) ? null : this.defi.rateToFee(feeRate);
+	}
+	getNearestTick(tick) {
+		let {tickSpacing} = this;
+		return d(tick).div(tickSpacing).round().mul(tickSpacing).toFixed(0);
 	}
 	get price_$() {
 		return d(1.0001).pow(this.tick);
@@ -110,10 +119,20 @@ class Position extends Obj {
 		return this.max1$.toNumber();
 	}
 	get amount0_$() {
-		return d(this.liquidity).mul(d(1.0001).pow(this.pool.tick * -0.5).minus(d(1.0001).pow(this.tickUpper * -0.5)));
+		let tick = this.pool.tick;
+		let tickUpper = this.tickUpper;
+		if (d(tick).gt(d(tickUpper))) {
+			tick = tickUpper;
+		}
+		return d(this.liquidity).mul(d(1.0001).pow(tick * -0.5).minus(d(1.0001).pow(tickUpper * -0.5)));
 	}
 	get amount1_$() {
-		return d(this.liquidity).mul(d(1.0001).pow(this.pool.tick * +0.5).minus(d(1.0001).pow(this.tickLower * +0.5)));
+		let tick = this.pool.tick;
+		let tickLower = this.tickLower;
+		if (d(tick).lt(d(tickLower))) {
+			tick = tickLower;
+		}
+		return d(this.liquidity).mul(d(1.0001).pow(tick * +0.5).minus(d(1.0001).pow(tickLower * +0.5)));
 	}
 	get amount0$() {
 		return this.amount0_$.div(10 ** this.pool.token0.decimals);
@@ -156,6 +175,30 @@ class Position extends Obj {
 	}
 	get priceUpper() {
 		return this.priceUpper$.toNumber();
+	}
+	get min0_$() {
+		return this.max1_$.div(this.priceUpper_$);
+	}
+	get min0_() {
+		return this.min0_$.toString();
+	}
+	get min0$() {
+		return this.min0_$.div(10 ** this.pool.token0.decimals);
+	}
+	get min0() {
+		return this.min0$.toNumber();
+	}
+	get min1_$() {
+		return this.max0_$.mul(this.priceLower_$);
+	}
+	get min1_() {
+		return this.min1_$.toString();
+	}
+	get min1$() {
+		return this.min1_$.div(10 ** this.pool.token1.decimals);
+	}
+	get min1() {
+		return this.min1$.toNumber();
 	}
 	get fee0_$() {
 		return d(this.pool.feeGrowthGlobal0X128)
@@ -218,13 +261,17 @@ class Position extends Obj {
 		return this.total1$.toNumber();
 	}
 	get r0$() {
-		return this.amount0_$.div(this.total0_$);
+		let m0_$ = d(1.0001).pow(this.pool.tick * -0.5).minus(d(1.0001).pow(this.tickUpper * -0.5));
+		let m1_$ = d(1.0001).pow(this.pool.tick * +0.5).minus(d(1.0001).pow(this.tickLower * +0.5));
+		return m0_$.div(m0_$.plus(m1_$.div(this.pool.price_$)));
 	}
 	get r0() {
 		return this.r0$.toNumber();
 	}
 	get r1$() {
-		return this.amount1_$.div(this.total1_$);
+		let m0_$ = d(1.0001).pow(this.pool.tick * -0.5).minus(d(1.0001).pow(this.tickUpper * -0.5));
+		let m1_$ = d(1.0001).pow(this.pool.tick * +0.5).minus(d(1.0001).pow(this.tickLower * +0.5));
+		return m1_$.div(m1_$.plus(m0_$.mul(this.pool.price_$)));
 	}
 	get r1() {
 		return this.r1$.toNumber();
@@ -288,6 +335,27 @@ class Position extends Obj {
 			collected1,
 		};
 	}
+	async toDecreaseLiquidity(ratio = 1, dontWrap = false) {
+		let position = this;
+		let {liquidity} = position;
+		if (d(liquidity).gt(0)) {
+			let {id: tokenId, amount0_, amount1_} = position;
+			let {defi} = position;
+			let {positionManager} = defi;
+			await positionManager.toGetAbi();
+			let {abi} = positionManager;
+			
+			liquidity = d(liquidity).mul(ratio).toFixed(0);
+			let amount0Min = d(amount0_).mul(ratio).mul(0.9).toFixed(0);
+			let amount1Min = d(amount1_).mul(ratio).mul(0.9).toFixed(0);
+			let deadline = defi.deadline();
+			console.log(JSON.stringify({method: "decreaseLiquidity", params: {tokenId, liquidity, amount0Min, amount1Min, deadline}}));
+			let result = await positionManager.toCallWrite("decreaseLiquidity", [tokenId, liquidity, amount0Min, amount1Min, deadline]);
+			console.log(JSON.stringify(result));
+			let {logs} = result;
+			let event = positionManager.findEvent("DecreaseLiquidity");
+		}
+	}
 	async toProportionalize({amnt0_, amnt1_, priceExternal, pathInfos}) {
 		let position = this;
 		let {defi, amount0_$, amount1_$, pool: {price_$, feeRate, tokenId0, tokenId1, token0: {decimals: decimals0}, token1: {decimals: decimals1}}} = position;
@@ -319,14 +387,14 @@ class Position extends Obj {
 		let routes, route;
 		if (isForward) {
 			let amountIn_ = delta0_$.mul(-1).toFixed(0);
-			console.log({pathInfos, amountIn_, priceExternal});
+			// console.log({pathInfos, amountIn_, priceExternal});
 			routes = await defi.toQuoteRoutes({pathInfos, amountIn_, priceExternal});
 			route = routes[0];
 			delta1_$ = d(route.amountOut_);
 		} else {
 			pathInfos = pathInfos.map(pathInfo => pathInfo.reverse());
 			let amountIn_ = delta1_$.mul(-1).toFixed(0);
-			console.log({pathInfos, amountIn_, priceExternal: d(priceExternal).pow(-1).toNumber()});
+			// console.log({pathInfos, amountIn_, priceExternal: d(priceExternal).pow(-1).toNumber()});
 			routes = await defi.toQuoteRoutes({pathInfos, amountIn_, priceExternal: d(priceExternal).pow(-1).toNumber()});
 			route = routes[0];
 			delta0_$ = d(route.amountOut_);
@@ -335,7 +403,7 @@ class Position extends Obj {
 		let delta1_ = delta1_$.abs().toFixed(0);
 		let amt0_ = amnt0_$.plus(delta0_$).toFixed(0);
 		let amt1_ = amnt1_$.plus(delta1_$).toFixed(0);
-		return {amt0_, amt1_, delta0_, delta1_, isForward, route, routes};
+		return {amt0_, amt1_, delta0_, delta1_, isForward, route, routes, priceExternal};
 	}
 }
 
@@ -365,7 +433,16 @@ class DeFi extends Obj {
 			
 			FEE_RATE_K: 1e6,
 			tolerance: 0.01,
+			
+			reserveTokBalance: 0.5,
+			deadlineMins: 30,
 		});
+	}
+	deadline(now) {
+		if (cutil.isNil(now)) {
+			now = Date.now();
+		}
+		return Math.floor(new Date(now).getTime() / 1000 + 60 * this.deadlineMins);
 	}
 	get factory() {
 		let defi = this;
@@ -493,6 +570,11 @@ class DeFi extends Obj {
 		await factory.toGetAbi();
 		let tickSpacing = await factory.toCallRead("feeAmountTickSpacing", defi.rateToFee(feeRate));
 		return cutil.asNumber(tickSpacing);
+	}
+	async toGetNearestTick(tick, feeRate) {
+		let defi = this;
+		let tickSpacing = await defi.toGetTickSpacingForFeeRate(feeRate);
+		return d(tick).div(tickSpacing).round().mul(tickSpacing).toFixed(0);
 	}
 	async toGetPool(tokenIdA, tokenIdB, feeRate) {
 		let defi = this;
@@ -760,7 +842,7 @@ class DeFi extends Obj {
 		let slippage = 1 - (price / priceExternal);
 		return {amountIn, amountIn_, amountOut, amountOut_, price, slippage};
 	}
-	async toSwap({pathInfo, amountIn, amountIn_, amountOut, amountOut_, priceExternal}) {
+	async toSwap({pathInfo, amountIn, amountIn_, amountOut, amountOut_, priceExternal, dontWrap}) {
 		let defi = this;
 		let {util} = defi;
 		let {account} = defi;
@@ -791,13 +873,13 @@ class DeFi extends Obj {
 		let value = 0;
 		if (amountIn_) {
 			let amountOutMinimum_ = d(amountIn_).mul(priceExternal_$).mul(d(1 - defi.tolerance)).toFixed(0);
-			if (util.isWTok(tokenIn)) {
+			if (!dontWrap && util.isWTok(tokenIn)) {
 				value = amountIn_;
 			}
 			result = await router2.toCallWriteWithValue(value, "exactInput", [path, recipient, amountIn_, amountOutMinimum_]);
 		} else if (amountOut_) {
 			let amountInMaximum_ = d(amountOut_).div(priceExternal_$).mul(d(1 + defi.tolerance)).toFixed(0);
-			if (util.isWTok(tokenIn)) {
+			if (!dontWrap && util.isWTok(tokenIn)) {
 				value = amountInMaximum_;
 			}
 			result = await router2.toCallWriteWithValue(value, "exactOutput", [path, recipient, amountOut_, amountInMaximum_]);
