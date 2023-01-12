@@ -94,6 +94,9 @@ class Position extends Obj {
 			feeGrowthOutside1X128Upper: null,
 		});
 	}
+	get tickWidth() {
+		return d(this.tickUpper).minus(d(this.tickLower)).toNumber();
+	}
 	get max0_$() {
 		return d(this.liquidity).mul(d(1.0001).pow(this.tickLower * -0.5).minus(d(1.0001).pow(this.tickUpper * -0.5)));
 	}
@@ -260,17 +263,59 @@ class Position extends Obj {
 	get total1() {
 		return this.total1$.toNumber();
 	}
+	get m0$() {
+		let tick = this.pool.tick;
+		let tickUpper = this.tickUpper;
+		if (d(tick).gt(d(tickUpper))) {
+			tick = tickUpper;
+		}
+		let tickLower = this.tickLower;
+		if (d(tick).lt(d(tickLower))) {
+			tick = tickLower;
+		}
+		return d(1.0001).pow(tick * -0.5).minus(d(1.0001).pow(tickUpper * -0.5));
+	}
+	get m1$() {
+		let tick = this.pool.tick;
+		let tickUpper = this.tickUpper;
+		if (d(tick).gt(d(tickUpper))) {
+			tick = tickUpper;
+		}
+		let tickLower = this.tickLower;
+		if (d(tick).lt(d(tickLower))) {
+			tick = tickLower;
+		}
+		return d(1.0001).pow(tick * +0.5).minus(d(1.0001).pow(tickLower * +0.5));
+	}
 	get r0$() {
-		let m0_$ = d(1.0001).pow(this.pool.tick * -0.5).minus(d(1.0001).pow(this.tickUpper * -0.5));
-		let m1_$ = d(1.0001).pow(this.pool.tick * +0.5).minus(d(1.0001).pow(this.tickLower * +0.5));
+		let tick = this.pool.tick;
+		let tickUpper = this.tickUpper;
+		if (d(tick).gt(d(tickUpper))) {
+			tick = tickUpper;
+		}
+		let tickLower = this.tickLower;
+		if (d(tick).lt(d(tickLower))) {
+			tick = tickLower;
+		}
+		let m0_$ = d(1.0001).pow(tick * -0.5).minus(d(1.0001).pow(tickUpper * -0.5));
+		let m1_$ = d(1.0001).pow(tick * +0.5).minus(d(1.0001).pow(tickLower * +0.5));
 		return m0_$.div(m0_$.plus(m1_$.div(this.pool.price_$)));
 	}
 	get r0() {
 		return this.r0$.toNumber();
 	}
 	get r1$() {
-		let m0_$ = d(1.0001).pow(this.pool.tick * -0.5).minus(d(1.0001).pow(this.tickUpper * -0.5));
-		let m1_$ = d(1.0001).pow(this.pool.tick * +0.5).minus(d(1.0001).pow(this.tickLower * +0.5));
+		let tick = this.pool.tick;
+		let tickUpper = this.tickUpper;
+		if (d(tick).gt(d(tickUpper))) {
+			tick = tickUpper;
+		}
+		let tickLower = this.tickLower;
+		if (d(tick).lt(d(tickLower))) {
+			tick = tickLower;
+		}
+		let m0_$ = d(1.0001).pow(tick * -0.5).minus(d(1.0001).pow(tickUpper * -0.5));
+		let m1_$ = d(1.0001).pow(tick * +0.5).minus(d(1.0001).pow(tickLower * +0.5));
 		return m1_$.div(m1_$.plus(m0_$.mul(this.pool.price_$)));
 	}
 	get r1() {
