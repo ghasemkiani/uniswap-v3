@@ -204,18 +204,30 @@ class Position extends Obj {
 		return this.min1$.toNumber();
 	}
 	get fee0_$() {
-		return d(this.pool.feeGrowthGlobal0X128)
-			.minus(d(this.feeGrowthOutside0X128Lower))
-			.minus(d(this.feeGrowthOutside0X128Upper))
+		let feeGrowthInside0X128$;
+		if (d(this.pool.tick).lt(d(this.tickLower))) {
+			feeGrowthInside0X128$ = d(this.feeGrowthOutside0X128Lower).minus(d(this.feeGrowthOutside0X128Upper));
+		} else if (d(this.pool.tick).gte(d(this.tickUpper))) {
+			feeGrowthInside0X128$ = d(this.feeGrowthOutside0X128Upper).minus(d(this.feeGrowthOutside0X128Lower));
+		} else {
+			feeGrowthInside0X128$ = d(this.pool.feeGrowthGlobal0X128).minus(d(this.feeGrowthOutside0X128Lower)).minus(d(this.feeGrowthOutside0X128Upper));
+		}
+		return feeGrowthInside0X128$
 			.minus(d(this.feeGrowthInside0LastX128))
 			.mul(d(this.liquidity))
 			.div(d(2).pow(128))
 			.plus(d(this.tokensOwed0));
 	}
 	get fee1_$() {
-		return d(this.pool.feeGrowthGlobal1X128)
-			.minus(d(this.feeGrowthOutside1X128Lower))
-			.minus(d(this.feeGrowthOutside1X128Upper))
+		let feeGrowthInside1X128$;
+		if (d(this.pool.tick).lt(d(this.tickLower))) {
+			feeGrowthInside1X128$ = d(this.feeGrowthOutside1X128Lower).minus(d(this.feeGrowthOutside1X128Upper));
+		} else if (d(this.pool.tick).gte(d(this.tickUpper))) {
+			feeGrowthInside1X128$ = d(this.feeGrowthOutside1X128Upper).minus(d(this.feeGrowthOutside1X128Lower));
+		} else {
+			feeGrowthInside1X128$ = d(this.pool.feeGrowthGlobal1X128).minus(d(this.feeGrowthOutside1X128Lower)).minus(d(this.feeGrowthOutside1X128Upper));
+		}
+		return feeGrowthInside1X128$
 			.minus(d(this.feeGrowthInside1LastX128))
 			.mul(d(this.liquidity))
 			.div(d(2).pow(128))
@@ -790,7 +802,6 @@ class DeFi extends Obj {
 		let {feeGrowthOutside0X128: feeGrowthOutside0X128Lower, feeGrowthOutside1X128: feeGrowthOutside1X128Lower} = await pool.contract.toCallRead("ticks", cutil.asNumber(tickLower));
 		let {feeGrowthOutside0X128: feeGrowthOutside0X128Upper, feeGrowthOutside1X128: feeGrowthOutside1X128Upper} = await pool.contract.toCallRead("ticks", cutil.asNumber(tickUpper));
 		
-		/*
 		console.log(`${"feeGrowthGlobal0X128".padEnd(30)}\t${pool.feeGrowthGlobal0X128.padStart(80)}`);
 		console.log(`${"feeGrowthOutside0X128Lower".padEnd(30)}\t${feeGrowthOutside0X128Lower.padStart(80)}`);
 		console.log(`${"feeGrowthOutside0X128Upper".padEnd(30)}\t${feeGrowthOutside0X128Upper.padStart(80)}`);
@@ -804,7 +815,6 @@ class DeFi extends Obj {
 		console.log(`${"feeGrowthInside1LastX128".padEnd(30)}\t${feeGrowthInside1LastX128.padStart(80)}`);
 		console.log(`${"liquidity".padEnd(30)}\t${liquidity.padStart(80)}`);
 		console.log(`${"tokensOwed1".padEnd(30)}\t${tokensOwed1.padStart(80)}`);
-		*/
 		
 		await pool.token0.toGetAbi();
 		await pool.token0.toGetDecimals();
