@@ -3,7 +3,7 @@ import d from "decimal.js";
 import {cutil} from "@ghasemkiani/base";
 import {Obj} from "@ghasemkiani/base";
 
-const PRECISION = 30;
+const PRECISION = 100;
 if (d.precision < PRECISION) {
 	d.set({precision: PRECISION});
 }
@@ -212,6 +212,9 @@ class Position extends Obj {
 		} else {
 			feeGrowthInside0X128$ = d(this.pool.feeGrowthGlobal0X128).minus(d(this.feeGrowthOutside0X128Lower)).minus(d(this.feeGrowthOutside0X128Upper));
 		}
+		if (feeGrowthInside0X128$.lt(0)) {
+			feeGrowthInside0X128$ = feeGrowthInside0X128$.plus(d(2).pow(256));
+		}
 		return feeGrowthInside0X128$
 			.minus(d(this.feeGrowthInside0LastX128))
 			.mul(d(this.liquidity))
@@ -226,6 +229,9 @@ class Position extends Obj {
 			feeGrowthInside1X128$ = d(this.feeGrowthOutside1X128Upper).minus(d(this.feeGrowthOutside1X128Lower));
 		} else {
 			feeGrowthInside1X128$ = d(this.pool.feeGrowthGlobal1X128).minus(d(this.feeGrowthOutside1X128Lower)).minus(d(this.feeGrowthOutside1X128Upper));
+		}
+		if (feeGrowthInside1X128$.lt(0)) {
+			feeGrowthInside1X128$ = feeGrowthInside1X128$.plus(d(2).pow(256));
 		}
 		return feeGrowthInside1X128$
 			.minus(d(this.feeGrowthInside1LastX128))
@@ -802,19 +808,19 @@ class DeFi extends Obj {
 		let {feeGrowthOutside0X128: feeGrowthOutside0X128Lower, feeGrowthOutside1X128: feeGrowthOutside1X128Lower} = await pool.contract.toCallRead("ticks", cutil.asNumber(tickLower));
 		let {feeGrowthOutside0X128: feeGrowthOutside0X128Upper, feeGrowthOutside1X128: feeGrowthOutside1X128Upper} = await pool.contract.toCallRead("ticks", cutil.asNumber(tickUpper));
 		
-		console.log(`${"feeGrowthGlobal0X128".padEnd(30)}\t${pool.feeGrowthGlobal0X128.padStart(80)}`);
-		console.log(`${"feeGrowthOutside0X128Lower".padEnd(30)}\t${feeGrowthOutside0X128Lower.padStart(80)}`);
-		console.log(`${"feeGrowthOutside0X128Upper".padEnd(30)}\t${feeGrowthOutside0X128Upper.padStart(80)}`);
-		console.log(`${"feeGrowthInside0LastX128".padEnd(30)}\t${feeGrowthInside0LastX128.padStart(80)}`);
-		console.log(`${"liquidity".padEnd(30)}\t${liquidity.padStart(80)}`);
-		console.log(`${"tokensOwed0".padEnd(30)}\t${tokensOwed0.padStart(80)}`);
+		// console.log(`${"feeGrowthGlobal0X128".padEnd(30)}\t${pool.feeGrowthGlobal0X128.padStart(80)}`);
+		// console.log(`${"feeGrowthOutside0X128Lower".padEnd(30)}\t${feeGrowthOutside0X128Lower.padStart(80)}`);
+		// console.log(`${"feeGrowthOutside0X128Upper".padEnd(30)}\t${feeGrowthOutside0X128Upper.padStart(80)}`);
+		// console.log(`${"feeGrowthInside0LastX128".padEnd(30)}\t${feeGrowthInside0LastX128.padStart(80)}`);
+		// console.log(`${"liquidity".padEnd(30)}\t${liquidity.padStart(80)}`);
+		// console.log(`${"tokensOwed0".padEnd(30)}\t${tokensOwed0.padStart(80)}`);
 		
-		console.log(`${"feeGrowthGlobal1X128".padEnd(30)}\t${pool.feeGrowthGlobal1X128.padStart(80)}`);
-		console.log(`${"feeGrowthOutside1X128Lower".padEnd(30)}\t${feeGrowthOutside1X128Lower.padStart(80)}`);
-		console.log(`${"feeGrowthOutside1X128Upper".padEnd(30)}\t${feeGrowthOutside1X128Upper.padStart(80)}`);
-		console.log(`${"feeGrowthInside1LastX128".padEnd(30)}\t${feeGrowthInside1LastX128.padStart(80)}`);
-		console.log(`${"liquidity".padEnd(30)}\t${liquidity.padStart(80)}`);
-		console.log(`${"tokensOwed1".padEnd(30)}\t${tokensOwed1.padStart(80)}`);
+		// console.log(`${"feeGrowthGlobal1X128".padEnd(30)}\t${pool.feeGrowthGlobal1X128.padStart(80)}`);
+		// console.log(`${"feeGrowthOutside1X128Lower".padEnd(30)}\t${feeGrowthOutside1X128Lower.padStart(80)}`);
+		// console.log(`${"feeGrowthOutside1X128Upper".padEnd(30)}\t${feeGrowthOutside1X128Upper.padStart(80)}`);
+		// console.log(`${"feeGrowthInside1LastX128".padEnd(30)}\t${feeGrowthInside1LastX128.padStart(80)}`);
+		// console.log(`${"liquidity".padEnd(30)}\t${liquidity.padStart(80)}`);
+		// console.log(`${"tokensOwed1".padEnd(30)}\t${tokensOwed1.padStart(80)}`);
 		
 		await pool.token0.toGetAbi();
 		await pool.token0.toGetDecimals();
