@@ -910,6 +910,12 @@ class DeFi extends Obj {
 		let {address} = account;
 		let {router2} = defi;
 		
+		let method;
+		let params;
+		let value = 0;
+		
+		let amountMinimum;
+		
 		await router2.toGetAbi();
 		let path = defi.pathFromTokenIdsAndFees(pathInfo);
 		let tokenIn = defi.token(pathInfo[0]);
@@ -930,22 +936,45 @@ class DeFi extends Obj {
 			amountOut = tokenOut.unwrapNumber(amountOut_);
 		}
 		let recipient = address;
-		let result;
-		let value = 0;
 		if (amountIn_) {
 			let amountOutMinimum_ = d(amountIn_).mul(priceExternal_$).mul(d(1 - defi.tolerance)).toFixed(0);
 			if (!dontWrap && util.isWTok(tokenIn)) {
 				value = amountIn_;
 			}
-			result = await router2.toCallWriteWithValue(value, "exactInput", [path, recipient, amountIn_, amountOutMinimum_]);
+			method = "exactInput";
+			params = [[path, recipient, amountIn_, amountOutMinimum_]];
+			if (!dontWrap && util.isWTok(tokenOut)) {
+				amountMinimum = amountOutMinimum_;
+				params[0][1] = util.addressTwo;
+			}
 		} else if (amountOut_) {
 			let amountInMaximum_ = d(amountOut_).div(priceExternal_$).mul(d(1 + defi.tolerance)).toFixed(0);
 			if (!dontWrap && util.isWTok(tokenIn)) {
 				value = amountInMaximum_;
 			}
-			result = await router2.toCallWriteWithValue(value, "exactOutput", [path, recipient, amountOut_, amountInMaximum_]);
+			method = "exactOutput";
+			params = [[path, recipient, amountOut_, amountInMaximum_]];
+			if (!dontWrap && util.isWTok(tokenOut)) {
+				amountMinimum = amountOut_;
+				params[0][1] = util.addressTwo;
+			}
 		}
 		
+		if (!dontWrap && util.isWTok(tokenOut)) {
+			let calls = [];
+			
+			calls.push(router2.callData(method, ...params));
+			calls.push(router2.callData("unwrapWETH9", amountMinimum, recipient));
+			
+			method = "multicall(bytes[])";
+			params = [calls];
+		}
+		
+		console.log(JSON.stringify({method, params}, null, "\t"));
+		
+		let data = router2.callData(method, ...params);
+		console.log({data});
+		let result = await router2.toSendData(data, value);
 		return result;
 	}
 	async toQuoteRoutes({pathInfos, amountIn, amountIn_, amountOut, amountOut_, priceExternal}) {
