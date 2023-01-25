@@ -1,6 +1,6 @@
 {
 	"name": "@ghasemkiani/uniswap-v3",
-	"version": "2.1.36",
+	"version": "2.1.37",
 	"description": "Uniswap v3 client",
 	"type": "module",
 	"main": "index.js",

@@ -122,20 +122,10 @@ class Position extends Obj {
 		return this.max1$.toNumber();
 	}
 	get amount0_$() {
-		let tick = this.pool.tick;
-		let tickUpper = this.tickUpper;
-		if (d(tick).gt(d(tickUpper))) {
-			tick = tickUpper;
-		}
-		return d(this.liquidity).mul(d(1.0001).pow(tick * -0.5).minus(d(1.0001).pow(tickUpper * -0.5)));
+		return d(this.liquidity).mul(this.m0$);
 	}
 	get amount1_$() {
-		let tick = this.pool.tick;
-		let tickLower = this.tickLower;
-		if (d(tick).lt(d(tickLower))) {
-			tick = tickLower;
-		}
-		return d(this.liquidity).mul(d(1.0001).pow(tick * +0.5).minus(d(1.0001).pow(tickLower * +0.5)));
+		return d(this.liquidity).mul(this.m1$);
 	}
 	get amount0$() {
 		return this.amount0_$.div(10 ** this.pool.token0.decimals);
@@ -306,35 +296,13 @@ class Position extends Obj {
 		return d(1.0001).pow(tick * +0.5).minus(d(1.0001).pow(tickLower * +0.5));
 	}
 	get r0$() {
-		let tick = this.pool.tick;
-		let tickUpper = this.tickUpper;
-		if (d(tick).gt(d(tickUpper))) {
-			tick = tickUpper;
-		}
-		let tickLower = this.tickLower;
-		if (d(tick).lt(d(tickLower))) {
-			tick = tickLower;
-		}
-		let m0_$ = d(1.0001).pow(tick * -0.5).minus(d(1.0001).pow(tickUpper * -0.5));
-		let m1_$ = d(1.0001).pow(tick * +0.5).minus(d(1.0001).pow(tickLower * +0.5));
-		return m0_$.div(m0_$.plus(m1_$.div(this.pool.price_$)));
+		return this.m0$.div(this.m0$.plus(this.m1$.div(this.pool.price_$)));
 	}
 	get r0() {
 		return this.r0$.toNumber();
 	}
 	get r1$() {
-		let tick = this.pool.tick;
-		let tickUpper = this.tickUpper;
-		if (d(tick).gt(d(tickUpper))) {
-			tick = tickUpper;
-		}
-		let tickLower = this.tickLower;
-		if (d(tick).lt(d(tickLower))) {
-			tick = tickLower;
-		}
-		let m0_$ = d(1.0001).pow(tick * -0.5).minus(d(1.0001).pow(tickUpper * -0.5));
-		let m1_$ = d(1.0001).pow(tick * +0.5).minus(d(1.0001).pow(tickLower * +0.5));
-		return m1_$.div(m1_$.plus(m0_$.mul(this.pool.price_$)));
+		return this.m1$.div(this.m1$.plus(this.m0$.mul(this.pool.price_$)));
 	}
 	get r1() {
 		return this.r1$.toNumber();
