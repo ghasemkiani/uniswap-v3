@@ -465,7 +465,7 @@ class DeFi extends Obj {
 			FEE_RATE_K: 1e6,
 			tolerance: 0.01,
 			
-			reserveTokBalance: 0.5,
+			_reserveBalances: null,
 			deadlineMins: 30,
 		});
 	}
@@ -522,6 +522,26 @@ class DeFi extends Obj {
 	set router2(router2) {
 		let defi = this;
 		defi._router2 = router2;
+	}
+	get reserveBalances() {
+		if (!this._reserveBalances) {
+			this._reserveBalances = {
+				[this.util.tok]: 0.25,
+			};
+		}
+		return this._reserveBalances;
+	}
+	set reserveBalances(reserveBalances) {
+		this._reserveBalances = reserveBalances;
+	}
+	get reserveTokBalance() {
+		return this.reserveBalances[this.util.tok];
+	}
+	set reserveTokBalance(reserveTokBalance) {
+		this.reserveBalances[this.util.tok] = reserveTokBalance;
+	}
+	reserveBalance(tokenId) {
+		return this.reserveBalances[tokenId] || 0;
 	}
 	get tokens() {
 		if (!this._tokens) {
