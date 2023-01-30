@@ -366,12 +366,18 @@ class Position extends Obj {
 			collected1,
 		};
 	}
-	async toDecreaseLiquidity(ratio = 1, dontWrap = false) {
+	async toDecreaseLiquidity(ratio = 1, dontUnwrap = false) {
 		let position = this;
 		let {liquidity} = position;
 		if (d(liquidity).gt(0)) {
+			let calls = [];
+			
 			let {id: tokenId, amount0_, amount1_} = position;
 			let {defi} = position;
+			let {util} = defi;
+			let {account} = defi;
+			let {address} = account;
+			let recipient = address;
 			let {positionManager} = defi;
 			await positionManager.toGetAbi();
 			let {abi} = positionManager;
@@ -381,10 +387,31 @@ class Position extends Obj {
 			let amount1Min = d(amount1_).mul(ratio).mul(0.9).toFixed(0);
 			let deadline = defi.deadline();
 			console.log(JSON.stringify({method: "decreaseLiquidity", params: {tokenId, liquidity, amount0Min, amount1Min, deadline}}));
-			let result = await positionManager.toCallWrite("decreaseLiquidity", [tokenId, liquidity, amount0Min, amount1Min, deadline]);
-			console.log(JSON.stringify(result));
-			let {logs} = result;
-			let event = positionManager.findEvent("DecreaseLiquidity");
+			calls.push(positionManager.callData("decreaseLiquidity", [tokenId, liquidity, amount0Min, amount1Min, deadline]));
+			
+			let amount0Max = d(2).pow(128).minus(1).toFixed(0);
+			let amount1Max = d(2).pow(128).minus(1).toFixed(0);
+			calls.push(positionManager.callData("collect", [tokenId, dontUnwrap ? recipient : util.addressZero, amount0Max, amount1Max]));
+			
+			if (!dontUnwrap) {
+				let addressWTok = await defi.toGetWTokAddress();
+				for (let [addr, fee_] of[
+						[position.pool.token0.address, position.fee0_],
+						[position.pool.token1.address, position.fee1_],
+					]) {
+					let amountMinimum = d(fee_).mul(0.999).toFixed(0);
+					if (util.eq(addr, addressWTok)) {
+						calls.push(positionManager.callData("unwrapWETH9", amountMinimum, recipient));
+					} else {
+						calls.push(positionManager.callData("sweepToken", addr, amountMinimum, recipient));
+					}
+				}
+			}
+			
+			let data = positionManager.callData("multicall", calls);
+			let {hash} = await positionManager.toSendData(data);
+			
+			console.log(`decreaseLiquidity:\n${hash}`);
 		}
 	}
 	async toProportionalize({amnt0_, amnt1_, priceExternal, pathInfos}) {
