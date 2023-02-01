@@ -2,6 +2,7 @@ import d from "decimal.js";
 
 import {cutil} from "@ghasemkiani/base";
 import {Obj} from "@ghasemkiani/base";
+import {chainer} from "@ghasemkiani/evm";
 
 const PRECISION = 100;
 if (d.precision < PRECISION) {
@@ -316,8 +317,8 @@ class Position extends Obj {
 	async toCollect(recipient = null) {
 		let position = this;
 		let {defi} = position;
-		let {util} = defi;
-		let {web3} = util;
+		let {chain} = defi;
+		let {web3} = chain;
 		let {id} = position;
 		let {pool} = position;
 		let {positionManager} = defi;
@@ -374,7 +375,7 @@ class Position extends Obj {
 			
 			let {id: tokenId, amount0_, amount1_} = position;
 			let {defi} = position;
-			let {util} = defi;
+			let {chain} = defi;
 			let {account} = defi;
 			let {address} = account;
 			let recipient = address;
@@ -391,7 +392,7 @@ class Position extends Obj {
 			
 			let amount0Max = d(2).pow(128).minus(1).toFixed(0);
 			let amount1Max = d(2).pow(128).minus(1).toFixed(0);
-			calls.push(positionManager.callData("collect", [tokenId, dontUnwrap ? recipient : util.addressZero, amount0Max, amount1Max]));
+			calls.push(positionManager.callData("collect", [tokenId, dontUnwrap ? recipient : chain.addressZero, amount0Max, amount1Max]));
 			
 			if (!dontUnwrap) {
 				let addressWTok = await defi.toGetWTokAddress();
@@ -400,7 +401,7 @@ class Position extends Obj {
 						[position.pool.token1.address, position.fee1_],
 					]) {
 					let amountMinimum = d(fee_).mul(0.999).toFixed(0);
-					if (util.eq(addr, addressWTok)) {
+					if (chain.eq(addr, addressWTok)) {
 						calls.push(positionManager.callData("unwrapWETH9", amountMinimum, recipient));
 					} else {
 						calls.push(positionManager.callData("sweepToken", addr, amountMinimum, recipient));
@@ -465,15 +466,9 @@ class Position extends Obj {
 	}
 }
 
-class DeFi extends Obj {
+class DeFi extends cutil.mixin(Obj, chainer) {
 	static {
 		cutil.extend(this.prototype, {
-			util: null,
-			Util: null,
-			Account: null,
-			Contract: null,
-			Token: null,
-			
 			Pool,
 			Position,
 			
@@ -553,7 +548,7 @@ class DeFi extends Obj {
 	get reserveBalances() {
 		if (!this._reserveBalances) {
 			this._reserveBalances = {
-				[this.util.tok]: 0.25,
+				[this.chain.tok]: 0.25,
 			};
 		}
 		return this._reserveBalances;
@@ -562,10 +557,10 @@ class DeFi extends Obj {
 		this._reserveBalances = reserveBalances;
 	}
 	get reserveTokBalance() {
-		return this.reserveBalances[this.util.tok];
+		return this.reserveBalances[this.chain.tok];
 	}
 	set reserveTokBalance(reserveTokBalance) {
-		this.reserveBalances[this.util.tok] = reserveTokBalance;
+		this.reserveBalances[this.chain.tok] = reserveTokBalance;
 	}
 	reserveBalance(tokenId) {
 		return this.reserveBalances[tokenId] || 0;
@@ -581,17 +576,11 @@ class DeFi extends Obj {
 	}
 	token(arg) {
 		let defi = this;
-		let {Token} = defi;
 		if (cutil.isString(arg)) {
 			arg = {id: arg};
 		}
 		let {id: tokenId} = arg;
-		return (tokenId in defi.tokens) ? defi.tokens[tokenId] : (defi.tokens[tokenId] = new Token(arg));
-	}
-	contract(...rest) {
-		let defi = this;
-		let {Contract} = defi;
-		return new Contract(...rest);
+		return (tokenId in defi.tokens) ? defi.tokens[tokenId] : (defi.tokens[tokenId] = super.token(arg));
 	}
 	feeToRate(fee) {
 		return cutil.asNumber(fee) / this.FEE_RATE_K;
@@ -609,13 +598,13 @@ class DeFi extends Obj {
 	}
 	pathFromTokenIdsAndFees(data) {
 		let defi = this;
-		let {util} = defi;
+		let {chain} = defi;
 		
-		let p = util.tokenAddress(data[0]).toLowerCase();
+		let p = chain.tokenAddress(data[0]).toLowerCase();
 		let n = cutil.asInteger(data.length / 2);
 		for (let i = 0; i < n; i++) {
 			p += cutil.asInteger(defi.rateToFee(data[2 * i + 1])).toString(16).toLowerCase().padStart(6, "0");
-			p += util.tokenAddress(data[2 * i + 2]).toLowerCase().substring(2);
+			p += chain.tokenAddress(data[2 * i + 2]).toLowerCase().substring(2);
 		}
 		return p;
 	}
@@ -699,7 +688,7 @@ class DeFi extends Obj {
 		let defi = this;
 		let {account} = defi;
 		let {Pool} = defi;
-		let {util} = defi;
+		let {chain} = defi;
 		
 		let contract = defi.contract({address, account});
 		await contract.toGetAbi();
@@ -739,10 +728,10 @@ class DeFi extends Obj {
 			unlocked,
 		} = slot0;
 		
-		let token0 = defi.token({account, address: addressToken0, id: util.tokenId(addressToken0)});
-		let token1 = defi.token({account, address: addressToken1, id: util.tokenId(addressToken1)});
-		let tokenId0 = util.tokenId(token0.address);
-		let tokenId1 = util.tokenId(token1.address);
+		let token0 = defi.token({account, address: addressToken0, id: chain.tokenId(addressToken0)});
+		let token1 = defi.token({account, address: addressToken1, id: chain.tokenId(addressToken1)});
+		let tokenId0 = chain.tokenId(token0.address);
+		let tokenId1 = chain.tokenId(token1.address);
 		
 		try {
 			await token0.toGetAbi();
@@ -801,7 +790,7 @@ class DeFi extends Obj {
 	async toGetPosition(id) {
 		let defi = this;
 		let {Position} = defi;
-		let {util} = defi;
+		let {chain} = defi;
 		let {positionManager} = defi;
 		
 		await positionManager.toGetAbi();
@@ -820,8 +809,8 @@ class DeFi extends Obj {
 			tokensOwed0,
 			tokensOwed1,
 		} = await positionManager.toCallRead("positions", id);
-		let tokenId0 = util.tokenId(addressToken0);
-		let tokenId1 = util.tokenId(addressToken1);
+		let tokenId0 = chain.tokenId(addressToken0);
+		let tokenId1 = chain.tokenId(addressToken1);
 		
 		let pool = await defi.toGetPool(tokenId0, tokenId1, defi.feeToRate(fee));
 		let {feeGrowthOutside0X128: feeGrowthOutside0X128Lower, feeGrowthOutside1X128: feeGrowthOutside1X128Lower} = await pool.contract.toCallRead("ticks", cutil.asNumber(tickLower));
@@ -870,7 +859,7 @@ class DeFi extends Obj {
 	}
 	async toGetPositions(tokenIdA, tokenIdB, feeRate, maxCount = 0, maxSearchCount = 0) {
 		let defi = this;
-		let {util} = defi;
+		let {chain} = defi;
 		let pool = await defi.toGetPool(tokenIdA, tokenIdB, feeRate);
 		let {address: addressPool} = pool;
 		let positionCount = await defi.toGetPositionCount();
@@ -879,7 +868,7 @@ class DeFi extends Obj {
 		for (let i = 0; i < maxSearchCount; i++) {
 			let index = positionCount - 1 - i;
 			let position = await defi.toGetPositionAt(index);
-			if (util.eq(position.pool.address, addressPool)) {
+			if (chain.eq(position.pool.address, addressPool)) {
 				result.push(position);
 				if (result.length === maxCount) {
 					break;
@@ -924,7 +913,7 @@ class DeFi extends Obj {
 	}
 	async toSwap({pathInfo, amountIn, amountIn_, amountOut, amountOut_, priceExternal, dontWrap}) {
 		let defi = this;
-		let {util} = defi;
+		let {chain} = defi;
 		let {account} = defi;
 		let {address} = account;
 		let {router2} = defi;
@@ -957,29 +946,29 @@ class DeFi extends Obj {
 		let recipient = address;
 		if (amountIn_) {
 			let amountOutMinimum_ = d(amountIn_).mul(priceExternal_$).mul(d(1 - defi.tolerance)).toFixed(0);
-			if (!dontWrap && util.isWTok(tokenIn)) {
+			if (!dontWrap && chain.isWTok(tokenIn)) {
 				value = amountIn_;
 			}
 			method = "exactInput";
 			params = [[path, recipient, amountIn_, amountOutMinimum_]];
-			if (!dontWrap && util.isWTok(tokenOut)) {
+			if (!dontWrap && chain.isWTok(tokenOut)) {
 				amountMinimum = amountOutMinimum_;
-				params[0][1] = util.addressTwo;
+				params[0][1] = chain.addressTwo;
 			}
 		} else if (amountOut_) {
 			let amountInMaximum_ = d(amountOut_).div(priceExternal_$).mul(d(1 + defi.tolerance)).toFixed(0);
-			if (!dontWrap && util.isWTok(tokenIn)) {
+			if (!dontWrap && chain.isWTok(tokenIn)) {
 				value = amountInMaximum_;
 			}
 			method = "exactOutput";
 			params = [[path, recipient, amountOut_, amountInMaximum_]];
-			if (!dontWrap && util.isWTok(tokenOut)) {
+			if (!dontWrap && chain.isWTok(tokenOut)) {
 				amountMinimum = amountOut_;
-				params[0][1] = util.addressTwo;
+				params[0][1] = chain.addressTwo;
 			}
 		}
 		
-		if (!dontWrap && util.isWTok(tokenOut)) {
+		if (!dontWrap && chain.isWTok(tokenOut)) {
 			let calls = [];
 			
 			calls.push(router2.callData(method, ...params));
@@ -1049,6 +1038,3 @@ class DeFi extends Obj {
 }
 
 export {DeFi};
-
-// https://web3js.readthedocs.io/en/v1.2.11/web3-eth-abi.html
-// https://docs.web3js.org/api
