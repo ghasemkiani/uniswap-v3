@@ -505,8 +505,8 @@ class DeFi extends Obj {
 	get factory() {
 		let defi = this;
 		if (!defi._factory) {
-			let {Contract, account, addressFactory: address} = defi;
-			defi._factory = new Contract({address, account});
+			let {account, addressFactory: address} = defi;
+			defi._factory = defi.contract({address, account});
 		}
 		return defi._factory;
 	}
@@ -517,8 +517,8 @@ class DeFi extends Obj {
 	get positionManager() {
 		let defi = this;
 		if (!defi._positionManager) {
-			let {Contract, account, addressPositionManager: address} = defi;
-			defi._positionManager = new Contract({address, account});
+			let {account, addressPositionManager: address} = defi;
+			defi._positionManager = defi.contract({address, account});
 		}
 		return defi._positionManager;
 	}
@@ -529,8 +529,8 @@ class DeFi extends Obj {
 	get quoter() {
 		let defi = this;
 		if (!defi._quoter) {
-			let {Contract, account, addressQuoter: address} = defi;
-			defi._quoter = new Contract({address, account});
+			let {account, addressQuoter: address} = defi;
+			defi._quoter = defi.contract({address, account});
 		}
 		return defi._quoter;
 	}
@@ -541,8 +541,8 @@ class DeFi extends Obj {
 	get router2() {
 		let defi = this;
 		if (!defi._router2) {
-			let {Contract, account, addressRouter2: address} = defi;
-			defi._router2 = new Contract({address, account});
+			let {account, addressRouter2: address} = defi;
+			defi._router2 = defi.contract({address, account});
 		}
 		return defi._router2;
 	}
@@ -587,6 +587,11 @@ class DeFi extends Obj {
 		}
 		let {id: tokenId} = arg;
 		return (tokenId in defi.tokens) ? defi.tokens[tokenId] : (defi.tokens[tokenId] = new Token(arg));
+	}
+	contract(...rest) {
+		let defi = this;
+		let {Contract} = defi;
+		return new Contract(...rest);
 	}
 	feeToRate(fee) {
 		return cutil.asNumber(fee) / this.FEE_RATE_K;
@@ -695,9 +700,8 @@ class DeFi extends Obj {
 		let {account} = defi;
 		let {Pool} = defi;
 		let {util} = defi;
-		let {Contract} = defi;
 		
-		let contract = new Contract({address});
+		let contract = defi.contract({address, account});
 		await contract.toGetAbi();
 		
 		let [
