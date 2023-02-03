@@ -330,6 +330,12 @@ class Position extends Obj {
 	get ratio() {
 		return this.ratio$.toNumber();
 	}
+	get rr$() {
+		return d.max(this.r0$.div(this.r1$), this.r1$.div(this.r0$));
+	}
+	get rr() {
+		return this.rr$.toNumber();
+	}
 	async toCollect(recipient = null) {
 		let position = this;
 		let {defi} = position;
