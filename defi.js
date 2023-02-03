@@ -50,6 +50,22 @@ class Pool extends Obj {
 	set feeRate(feeRate) {
 		this.fee = cutil.isNil(feeRate) ? null : this.defi.rateToFee(feeRate);
 	}
+	get symbol() {
+		let {tokenId0, tokenId1, fee} = this;
+		return [tokenId0, tokenId1, fee].find(x => cutil.isNil(x)) ? null : `${tokenId0}/${tokenId1}@${cutil.asInteger(fee).toFixed(0).padStart(5, "0")}`;
+	}
+	set symbol(symbol) {
+		if (cutil.isNil(symbol)) {
+			this.tokenId0 = null;
+			this.tokenId1 = null;
+			this.fee = null;
+		} else {
+			let [, tokenId0, tokenId1, fee] = /^(.*)\/(.*)@(.*)$/.exec(symbol);
+			this.tokenId0 = tokenId0;
+			this.tokenId1 = tokenId1;
+			this.fee = fee;
+		}
+	}
 	getNearestTick(tick) {
 		let {tickSpacing} = this;
 		return d(tick).div(tickSpacing).round().mul(tickSpacing).toFixed(0);
