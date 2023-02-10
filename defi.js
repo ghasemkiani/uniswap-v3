@@ -670,11 +670,10 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let tickSpacing = await defi.toGetTickSpacingForFeeRate(feeRate);
 		return d(tick).div(tickSpacing).round().mul(tickSpacing).toFixed(0);
 	}
-	async toGetPool(tokenIdA, tokenIdB, feeRate) {
+	async toGetPoolAddress(tokenIdA, tokenIdB, feeRate) {
 		let defi = this;
 		let {account} = defi;
 		let {factory} = defi;
-		let {Pool} = defi;
 		
 		let tokenA = defi.token({id: tokenIdA, account});
 		let tokenB = defi.token({id: tokenIdB, account});
@@ -682,6 +681,17 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		await factory.toGetAbi();
 		
 		let address = await factory.toCallRead("getPool", tokenA.address, tokenB.address, defi.rateToFee(feeRate));
+		return address;
+	}
+	async toGetPool(tokenIdA, tokenIdB, feeRate) {
+		let defi = this;
+		let {account} = defi;
+		let {Pool} = defi;
+		
+		let tokenA = defi.token({id: tokenIdA, account});
+		let tokenB = defi.token({id: tokenIdB, account});
+		
+		let address = await defi.toGetPoolAddress(tokenIdA, tokenIdB, feeRate);
 		
 		let pool = await defi.toGetPoolByAddress(address);
 		
@@ -1003,9 +1013,22 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		console.log(JSON.stringify({method, params}, null, "\t"));
 		
 		let data = router2.callData(method, ...params);
-		console.log({data});
 		let result = await router2.toSendData(data, value);
-		return result;
+		let [tokenIdA, feeRate, tokenIdB] = route.pathInfo.slice(amountIn_ ? -3 : 0);
+		let addressPool = await defi.toGetPoolAddress(tokenIdA, tokenIdB, feeRate);
+		for (let log of result.logs) {
+			let {event: {name}, address, decoded: {amount0, amount1}} = await defi.toDecodeLog(log);
+			if (chain.eq(address, addressPool) && name === "Swap") {
+				if (amountIn_) {
+					amountOut_ = [amount0, amount1].map(d).find(n => n.lt(0)).mul(-1).toFixed(0);
+					amountOut = tokenOut.unwrapNumber(amountOut_);
+				} else if (amountOut_) {
+					amountIn_ = [amount0, amount1].map(d).find(n => n.gt(0)).toFixed(0);
+					amountIn = tokenIn.unwrapNumber(amountOut_);
+				}
+			}
+		}
+		return {result, amountIn, amountIn_, amountOut, amountOut_};
 	}
 	async toQuoteRoutes({pathInfos, amountIn, amountIn_, amountOut, amountOut_, priceExternal}) {
 		let defi = this;
