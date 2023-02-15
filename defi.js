@@ -923,12 +923,12 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		await tokenOut.toGetDecimals();
 		if (amountIn && !amountIn_) {
 			amountIn_ = tokenIn.wrapNumber(amountIn);
-		} else if (amountIn_ & !amountIn) {
+		} else if (amountIn_ && !amountIn) {
 			amountIn = tokenIn.unwrapNumber(amountIn_);
 		}
 		if (amountOut && !amountOut_) {
 			amountOut_ = tokenOut.wrapNumber(amountOut);
-		} else if (amountOut_ & !amountOut) {
+		} else if (amountOut_ && !amountOut) {
 			amountOut = tokenOut.unwrapNumber(amountOut_);
 		}
 		if (amountIn_) {
@@ -967,12 +967,12 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let priceExternal_$ = d(priceExternal).mul(d(10).pow(tokenOut.decimals - tokenIn.decimals));
 		if (amountIn && !amountIn_) {
 			amountIn_ = tokenIn.wrapNumber(amountIn);
-		} else if (amountIn_ & !amountIn) {
+		} else if (amountIn_ && !amountIn) {
 			amountIn = tokenIn.unwrapNumber(amountIn_);
 		}
 		if (amountOut && !amountOut_) {
 			amountOut_ = tokenOut.wrapNumber(amountOut);
-		} else if (amountOut_ & !amountOut) {
+		} else if (amountOut_ && !amountOut) {
 			amountOut = tokenOut.unwrapNumber(amountOut_);
 		}
 		let recipient = address;
@@ -1070,6 +1070,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			} else {
 				amountIn_ = await quoter.toCallRead("quoteExactOutput", path, amountOut_);
 				amountIn = tokenIn.unwrapNumber(amountIn_);
+				console.log({pathInfo, amountIn_, amountOut_});
 			}
 			
 			let price = amountOut / amountIn;
