@@ -964,7 +964,6 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		await tokenIn.toGetDecimals();
 		await tokenOut.toGetAbi();
 		await tokenOut.toGetDecimals();
-		let priceExternal_$ = d(priceExternal).mul(d(10).pow(tokenOut.decimals - tokenIn.decimals));
 		if (amountIn && !amountIn_) {
 			amountIn_ = tokenIn.wrapNumber(amountIn);
 		} else if (amountIn_ && !amountIn) {
@@ -977,7 +976,12 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		}
 		let recipient = address;
 		if (amountIn_) {
+			let priceExternal_$ = d(priceExternal).mul(d(10).pow(tokenOut.decimals - tokenIn.decimals));
 			let amountOutMinimum_ = d(amountIn_).mul(priceExternal_$).mul(d(1 - defi.tolerance)).toFixed(0);
+			console.log(`amountIn_:`, d(amountIn_).toFixed(0));
+			console.log(`priceExternal_$:`, priceExternal_$.toNumber());
+			console.log(`defi.tolerance:`, defi.tolerance);
+			console.log(`amountOutMinimum_:`, amountOutMinimum_);
 			if (!dontWrap && chain.isWTok(tokenIn)) {
 				value = amountIn_;
 			}
@@ -988,7 +992,12 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 				params[0][1] = chain.addressTwo;
 			}
 		} else if (amountOut_) {
+			let priceExternal_$ = d(priceExternal).div(d(10).pow(tokenOut.decimals - tokenIn.decimals));
 			let amountInMaximum_ = d(amountOut_).div(priceExternal_$).mul(d(1 + defi.tolerance)).toFixed(0);
+			console.log(`amountOut_:`, d(amountOut_).toFixed(0));
+			console.log(`priceExternal_$:`, priceExternal_$.toNumber());
+			console.log(`defi.tolerance:`, defi.tolerance);
+			console.log(`amountInMaximum_:`, amountInMaximum_);
 			if (!dontWrap && chain.isWTok(tokenIn)) {
 				value = amountInMaximum_;
 			}
@@ -1038,7 +1047,6 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		
 		await quoter.toGetAbi();
 		
-		
 		let pathInfo = pathInfos[0];
 		let tokenIn = defi.token(pathInfo[0]);
 		let tokenOut = defi.token(pathInfo[pathInfo.length - 1]);
@@ -1068,9 +1076,12 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 				amountOut_ = await quoter.toCallRead("quoteExactInput", path, amountIn_);
 				amountOut = tokenOut.unwrapNumber(amountOut_);
 			} else {
+				// ??????
+				pathInfo = pathInfo.reverse();
+				path = defi.pathFromTokenIdsAndFees(pathInfo);
 				amountIn_ = await quoter.toCallRead("quoteExactOutput", path, amountOut_);
 				amountIn = tokenIn.unwrapNumber(amountIn_);
-				console.log({pathInfo, amountIn_, amountOut_});
+				console.log({pathInfo, path, amountIn_, amountOut_});
 			}
 			
 			let price = amountOut / amountIn;
