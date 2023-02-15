@@ -1014,7 +1014,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		
 		let data = router2.callData(method, ...params);
 		let result = await router2.toSendData(data, value);
-		let [tokenIdA, feeRate, tokenIdB] = route.pathInfo.slice(amountIn_ ? -3 : 0);
+		let [tokenIdA, feeRate, tokenIdB] = pathInfo.slice(amountIn_ ? -3 : 0);
 		let addressPool = await defi.toGetPoolAddress(tokenIdA, tokenIdB, feeRate);
 		for (let log of result.logs) {
 			let {event: {name}, address, decoded: {amount0, amount1}} = await defi.toDecodeLog(log);
@@ -1069,7 +1069,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 				amountOut = tokenOut.unwrapNumber(amountOut_);
 			} else {
 				amountIn_ = await quoter.toCallRead("quoteExactOutput", path, amountOut_);
-				amountIn = tokenOut.unwrapNumber(amountIn_);
+				amountIn = tokenIn.unwrapNumber(amountIn_);
 			}
 			
 			let price = amountOut / amountIn;
