@@ -950,6 +950,8 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let {address} = account;
 		let {router2} = defi;
 		
+		let isForward = amountIn || amountIn_;
+		
 		let method;
 		let params;
 		let value = 0;
@@ -960,6 +962,9 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let path = defi.pathFromTokenIdsAndFees(pathInfo);
 		let tokenIn = defi.token(pathInfo[0]);
 		let tokenOut = defi.token(pathInfo[pathInfo.length - 1]);
+		if (!isForward) {
+			[tokenIn, tokenOut] = [tokenOut, tokenIn];
+		}
 		await tokenIn.toGetAbi();
 		await tokenIn.toGetDecimals();
 		await tokenOut.toGetAbi();
@@ -975,13 +980,9 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			amountOut = tokenOut.unwrapNumber(amountOut_);
 		}
 		let recipient = address;
+		let priceExternal_$ = d(priceExternal).mul(d(10).pow(tokenOut.decimals - tokenIn.decimals));
 		if (amountIn_) {
-			let priceExternal_$ = d(priceExternal).mul(d(10).pow(tokenOut.decimals - tokenIn.decimals));
 			let amountOutMinimum_ = d(amountIn_).mul(priceExternal_$).mul(d(1 - defi.tolerance)).toFixed(0);
-			console.log(`amountIn_:`, d(amountIn_).toFixed(0));
-			console.log(`priceExternal_$:`, priceExternal_$.toNumber());
-			console.log(`defi.tolerance:`, defi.tolerance);
-			console.log(`amountOutMinimum_:`, amountOutMinimum_);
 			if (!dontWrap && chain.isWTok(tokenIn)) {
 				value = amountIn_;
 			}
@@ -992,12 +993,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 				params[0][1] = chain.addressTwo;
 			}
 		} else if (amountOut_) {
-			let priceExternal_$ = d(priceExternal).div(d(10).pow(tokenOut.decimals - tokenIn.decimals));
 			let amountInMaximum_ = d(amountOut_).div(priceExternal_$).mul(d(1 + defi.tolerance)).toFixed(0);
-			console.log(`amountOut_:`, d(amountOut_).toFixed(0));
-			console.log(`priceExternal_$:`, priceExternal_$.toNumber());
-			console.log(`defi.tolerance:`, defi.tolerance);
-			console.log(`amountInMaximum_:`, amountInMaximum_);
 			if (!dontWrap && chain.isWTok(tokenIn)) {
 				value = amountInMaximum_;
 			}
@@ -1019,25 +1015,102 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			params = [calls];
 		}
 		
-		console.log(JSON.stringify({method, params}, null, "\t"));
+		// console.log(JSON.stringify({method, params}, null, "\t"));
 		
 		let data = router2.callData(method, ...params);
-		let result = await router2.toSendData(data, value);
-		let [tokenIdA, feeRate, tokenIdB] = pathInfo.slice(amountIn_ ? -3 : 0);
-		let addressPool = await defi.toGetPoolAddress(tokenIdA, tokenIdB, feeRate);
-		for (let log of result.logs) {
-			let {event: {name}, address, decoded: {amount0, amount1}} = await defi.toDecodeLog(log);
-			if (chain.eq(address, addressPool) && name === "Swap") {
-				if (amountIn_) {
-					amountOut_ = [amount0, amount1].map(d).find(n => n.lt(0)).mul(-1).toFixed(0);
-					amountOut = tokenOut.unwrapNumber(amountOut_);
-				} else if (amountOut_) {
-					amountIn_ = [amount0, amount1].map(d).find(n => n.gt(0)).toFixed(0);
-					amountIn = tokenIn.unwrapNumber(amountOut_);
+		let receipt = await router2.toSendData(data, value);
+		
+		let tokenIdIn;
+		let tokenIdOut;
+		for (let log of cutil.asArray(receipt.logs)) {
+			log.dec = await defi.toDecodeLog(log);
+			let {event: {name}, address} = log.dec;
+			if (name === "Transfer") {
+				let {decoded: {from, to, value}} = log.dec;
+				if (from && to && value) {
+					let tokenId = chain.tokenId(address);
+					let token = defi.token(tokenId);
+					let value_ = value;
+					value = await token.toUnwrapNumber(value_);
+					if (chain.eq(from, defi.account.address)) {
+						tokenIdIn = tokenId;
+						amountIn_ = value_;
+						amountIn = value;
+					} else if (chain.eq(to, defi.account.address)) {
+						tokenIdOut = tokenId;
+						amountOut_ = value_;
+						amountOut = value;
+					}
 				}
+			} else if (name === "Deposit" && chain.isWTok(address)) {
+				let {decoded: {wad}} = log.dec;
+				let token = defi.wtoken();
+				let wad_ = wad;
+				wad = await token.toUnwrapNumber(wad_);
+				tokenIdIn = chain.wtok;
+				amountIn_ = wad_;
+				amountIn = wad;
+			} else if (name === "Withdrawal" && chain.isWTok(address)) {
+				let {decoded: {wad}} = log.dec;
+				let token = defi.wtoken();
+				let wad_ = wad;
+				wad = await token.toUnwrapNumber(wad_);
+				tokenIdOut = chain.wtok;
+				amountOut_ = wad_;
+				amountOut = wad;
 			}
 		}
-		return {result, amountIn, amountIn_, amountOut, amountOut_};
+		return {receipt, tokenIdIn, tokenIdOut, amountIn, amountIn_, amountOut, amountOut_};
+	}
+	async toProcessSwapTx(hash) {
+		let defi = this;
+		let {chain} = defi;
+		let {web3} = chain;
+		let tx = await web3.eth.getTransaction(hash);
+		if (!tx) {
+			throw new Error(`Transaction not found.`);
+		}
+		let {blockNumber} = tx;
+		if (cutil.isNil(blockNumber)) {
+			throw new Error(`Transaction is pending.`);
+		}
+		let receipt = await web3.eth.getTransactionReceipt(hash);
+		let tokenIdIn;
+		let tokenIdOut;
+		let amountIn;
+		let amountOut;
+		for (let log of cutil.asArray(receipt.logs)) {
+			log.dec = await defi.toDecodeLog(log);
+			let {event: {name}, address} = log.dec;
+			if (name === "Transfer") {
+				let {decoded: {from, to, value}} = log.dec;
+				if (from && to && value) {
+					let tokenId = chain.tokenId(address);
+					let token = defi.token(tokenId);
+					value = await token.toUnwrapNumber(value);
+					if (chain.eq(from, defi.account.address)) {
+						tokenIdIn = tokenId;
+						amountIn = value;
+					} else if (chain.eq(to, defi.account.address)) {
+						tokenIdOut = tokenId;
+						amountOut = value;
+					}
+				}
+			} else if (name === "Deposit" && chain.isWTok(address)) {
+				let {decoded: {wad}} = log.dec;
+				let token = defi.wtoken();
+				wad = await token.toUnwrapNumber(wad);
+				tokenIdIn = chain.wtok;
+				amountIn = wad;
+			} else if (name === "Withdrawal" && chain.isWTok(address)) {
+				let {decoded: {wad}} = log.dec;
+				let token = defi.wtoken();
+				wad = await token.toUnwrapNumber(wad);
+				tokenIdOut = chain.wtok;
+				amountOut = wad;
+			}
+		}
+		return {tx, receipt, tokenIdIn, tokenIdOut, amountIn, amountOut};
 	}
 	async toQuoteRoutes({pathInfos, amountIn, amountIn_, amountOut, amountOut_, priceExternal}) {
 		let defi = this;
@@ -1081,7 +1154,6 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 				path = defi.pathFromTokenIdsAndFees(pathInfo);
 				amountIn_ = await quoter.toCallRead("quoteExactOutput", path, amountOut_);
 				amountIn = tokenIn.unwrapNumber(amountIn_);
-				console.log({pathInfo, path, amountIn_, amountOut_});
 			}
 			
 			let price = amountOut / amountIn;
