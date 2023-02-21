@@ -1080,34 +1080,39 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let amountIn;
 		let amountOut;
 		for (let log of cutil.asArray(receipt.logs)) {
-			log.dec = await defi.toDecodeLog(log);
-			let {event: {name}, address} = log.dec;
-			if (name === "Transfer") {
-				let {decoded: {from, to, value}} = log.dec;
-				if (from && to && value) {
-					let tokenId = chain.tokenId(address);
-					let token = defi.token(tokenId);
-					value = await token.toUnwrapNumber(value);
-					if (chain.eq(from, defi.account.address)) {
-						tokenIdIn = tokenId;
-						amountIn = value;
-					} else if (chain.eq(to, defi.account.address)) {
-						tokenIdOut = tokenId;
-						amountOut = value;
+			try {
+				log.dec = await defi.toDecodeLog(log);
+				let {event: {name}, address} = log.dec;
+				if (name === "Transfer") {
+					let {decoded: {from, to, value}} = log.dec;
+					if (from && to && value) {
+						let tokenId = chain.tokenId(address);
+						let token = defi.token(tokenId);
+						value = await token.toUnwrapNumber(value);
+						if (chain.eq(from, defi.account.address)) {
+							tokenIdIn = tokenId;
+							amountIn = value;
+						} else if (chain.eq(to, defi.account.address)) {
+							tokenIdOut = tokenId;
+							amountOut = value;
+						}
 					}
+				} else if (name === "Deposit" && chain.isWTok(address)) {
+					let {decoded: {wad}} = log.dec;
+					let token = defi.wtoken();
+					wad = await token.toUnwrapNumber(wad);
+					tokenIdIn = chain.wtok;
+					amountIn = wad;
+				} else if (name === "Withdrawal" && chain.isWTok(address)) {
+					let {decoded: {wad}} = log.dec;
+					let token = defi.wtoken();
+					wad = await token.toUnwrapNumber(wad);
+					tokenIdOut = chain.wtok;
+					amountOut = wad;
 				}
-			} else if (name === "Deposit" && chain.isWTok(address)) {
-				let {decoded: {wad}} = log.dec;
-				let token = defi.wtoken();
-				wad = await token.toUnwrapNumber(wad);
-				tokenIdIn = chain.wtok;
-				amountIn = wad;
-			} else if (name === "Withdrawal" && chain.isWTok(address)) {
-				let {decoded: {wad}} = log.dec;
-				let token = defi.wtoken();
-				wad = await token.toUnwrapNumber(wad);
-				tokenIdOut = chain.wtok;
-				amountOut = wad;
+			} catch(e) {
+				console.log(`Error in defi.toProcessSwapTx:\n${JSON.stringify(log, null, "\t")}`);
+				console.log(e.message);
 			}
 		}
 		return {tx, receipt, tokenIdIn, tokenIdOut, amountIn, amountOut};
