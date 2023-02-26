@@ -927,7 +927,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let {account} = defi;
 		let {address} = account;
 		let pool = await defi.toGetPool(tokenIdA, tokenIdB, feeRate);
-		let {addressToken0: token0, addressToken1: token1, token0: {decimals: decimals0}, token1: {decimals: decimals1}, fee} = pool;
+		let {addressToken0: token0, addressToken1: token1, token0: {id: tokenId0, decimals: decimals0}, token1: {id: tokenId1, decimals: decimals1}, fee} = pool;
 		if (cutil.isNilOrEmptyString(tickLower)) {
 			tickLower = d(priceLower).mul(10 ** (decimals1 - decimals0)).log().div(d(1.0001).log()).toFixed(0);
 		}
@@ -992,7 +992,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 				}
 			}
 		}
-		return {receipt, tokenId, tickLower, tickUpper, liquidity, amount0, amount1, amount0_, amount1_};
+		return {receipt, tokenId, tickLower, tickUpper, liquidity, tokenId0, tokenId1, amount0, amount1, amount0_, amount1_};
 	}
 	async toQuote({pathInfo, amountIn, amountIn_, amountOut, amountOut_, priceExternal}) {
 		let defi = this;
