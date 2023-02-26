@@ -514,10 +514,11 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		});
 	}
 	deadline(now) {
+		let defi = this;
 		if (cutil.isNil(now)) {
 			now = Date.now();
 		}
-		return Math.floor(new Date(now).getTime() / 1000 + 60 * this.deadlineMins);
+		return Math.floor(new Date(now).getTime() / 1000 + 60 * defi.deadlineMins);
 	}
 	get factory() {
 		let defi = this;
@@ -598,11 +599,23 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 	}
 	token(arg) {
 		let defi = this;
+		let {account} = defi;
 		if (cutil.isString(arg)) {
 			arg = {id: arg};
 		}
+		arg = {account, ...cutil.asObject(arg)};
 		let {id: tokenId} = arg;
 		return (tokenId in defi.tokens) ? defi.tokens[tokenId] : (defi.tokens[tokenId] = super.token(arg));
+	}
+	pool(arg) {
+		let defi = this;
+		arg = {defi, ...cutil.asObject(arg)};
+		return new Pool(arg);
+	}
+	position(arg) {
+		let defi = this;
+		arg = {defi, ...cutil.asObject(arg)};
+		return new Position(arg);
 	}
 	feeToRate(fee) {
 		return cutil.asNumber(fee) / this.FEE_RATE_K;
@@ -703,19 +716,6 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			tokenB,
 		});
 	}
-	async toCreatePool(tokenIdA, tokenIdB, feeRate) {
-		let defi = this;
-		let {account} = defi;
-		let {factory} = defi;
-		
-		let tokenA = defi.token({id: tokenIdA, account});
-		let tokenB = defi.token({id: tokenIdB, account});
-		
-		await factory.toGetAbi();
-		let address = await factory.toCallRead("createPool", tokenA.address, tokenB.address, defi.rateToFee(feeRate));
-		
-		return address;
-	}
 	async toGetPoolByAddress(address) {
 		let defi = this;
 		let {account} = defi;
@@ -760,20 +760,18 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			unlocked,
 		} = slot0;
 		
-		let token0 = defi.token({account, address: addressToken0, id: chain.tokenId(addressToken0)});
-		let token1 = defi.token({account, address: addressToken1, id: chain.tokenId(addressToken1)});
-		let tokenId0 = chain.tokenId(token0.address);
-		let tokenId1 = chain.tokenId(token1.address);
+		let token0 = defi.token({account, address: addressToken0});
+		let token1 = defi.token({account, address: addressToken1});
+		let tokenId0 = token0.id;
+		let tokenId1 = token1.id;
 		
 		try {
-			await token0.toGetAbi();
 			await token0.toGetDecimals();
 		} catch(e) {
 			console.log(`Error in getting decimals for ${token0.address}`);
 			throw e;
 		}
 		try {
-			await token1.toGetAbi();
 			await token1.toGetDecimals();
 		} catch(e) {
 			console.log(`Error in getting decimals for ${token1.address}`);
@@ -808,6 +806,19 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			feeProtocol,
 			unlocked,
 		});
+	}
+	async toCreatePool(tokenIdA, tokenIdB, feeRate) {
+		let defi = this;
+		let {account} = defi;
+		let {factory} = defi;
+		
+		let tokenA = defi.token({id: tokenIdA, account});
+		let tokenB = defi.token({id: tokenIdB, account});
+		
+		await factory.toGetAbi();
+		let address = await factory.toCallRead("createPool", tokenA.address, tokenB.address, defi.rateToFee(feeRate));
+		
+		return address;
 	}
 	async toGetPositionAt(index) {
 		let defi = this;
@@ -908,6 +919,80 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			}
 		}
 		return result;
+	}
+	async toMintPosition({tokenIdA, tokenIdB, feeRate, priceLower, priceUpper, tickLower, tickUpper, amount0, amount1, amount0_, amount1_, recipient, dontWrap = false}) {
+		let defi = this;
+		let {chain} = defi;
+		let {positionManager} = defi;
+		let {account} = defi;
+		let {address} = account;
+		let pool = await defi.toGetPool(tokenIdA, tokenIdB, feeRate);
+		let {addressToken0: token0, addressToken1: token1, token0: {decimals: decimals0}, token1: {decimals: decimals1}, fee} = pool;
+		if (cutil.isNilOrEmptyString(tickLower)) {
+			tickLower = d(priceLower).mul(10 ** (decimals1 - decimals0)).log().div(d(1.0001).log()).toFixed(0);
+		}
+		if (cutil.isNilOrEmptyString(tickUpper)) {
+			tickUpper = d(priceUpper).mul(10 ** (decimals1 - decimals0)).log().div(d(1.0001).log()).toFixed(0);
+		}
+		
+		tickLower = pool.getNearestTick(tickLower);
+		tickUpper = pool.getNearestTick(tickUpper);
+		
+		if (cutil.isNilOrEmptyString(amount0_)) {
+			amount0_ = d(amount0).mul(10 ** decimals0).toFixed(0);
+		}
+		if (cutil.isNilOrEmptyString(amount1_)) {
+			amount1_ = d(amount1).mul(10 ** decimals1).toFixed(0);
+		}
+		let fee = defi.rateToFee(feeRate);
+		let amount0Desired = amount0;
+		let amount1Desired = amount1;
+		let amount0Min = d(amount0Desired).mul(1 - defi.tolerance).toFixed(0);
+		let amount1Min = d(amount1Desired).mul(1 - defi.tolerance).toFixed(0);
+		if (cutil.isNilOrEmptyString(recipient)) {
+			recipient = address;
+		}
+		let deadline = defi.deadline();
+		let value = "0";
+		if (!dontWrap && chain.isWTok(token0)) {
+			value = amount0Desired;
+		}
+		let method = "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))";
+		let params = [[token0, token1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline]];
+		if (chain.isWTok(token0)) {
+			let calls = [
+				positionManager.callData(method, ...params),
+				positionManager.callData("refundETH"),
+			];
+			method = "multicall(bytes[])";
+			params = [calls];
+			
+		}
+		let data = positionManager.callData(method, ...params);
+		let receipt = await router2.toSendData(data, value);
+		let tokenId;
+		let liquidity;
+		for (let log of receipt.logs) {
+			log.dec = await defi.toDecodeLog(log);
+			let {event: {name}, address} = log.dec;
+			if (chain.eq(address, defi.positionManager.address) && name === "Transfer") {
+				let {from, to} = log.dec;
+				if (chain.eq(from, chain.addressZero) && chain.eq(to, recipient)) {
+					({tokenId} = log.dec);
+				}
+			}
+			if (chain.eq(address, defi.positionManager.address) && name === "IncreaseLiquidity") {
+				let {tokenId: id} = log.dec;
+				if (tokenId === id) {
+					let {liquidity} = log.dec;
+					({amount0: amount0_} = log.dec);
+					({amount1: amount1_} = log.dec);
+					amount0 = d(amount0_).div(10 ** decimals0).toNumber();
+					amount1 = d(amount1_).div(10 ** decimals1).toNumber();
+				}
+			}
+		}
+		return {receipt, tokenId, tickLower, tickUpper, liquidity, amount0, amount1, amount0_, amount1_};
 	}
 	async toQuote({pathInfo, amountIn, amountIn_, amountOut, amountOut_, priceExternal}) {
 		let defi = this;
