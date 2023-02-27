@@ -491,6 +491,36 @@ class Position extends Obj {
 class DeFi extends cutil.mixin(Obj, chainer) {
 	static {
 		cutil.extend(this.prototype, {
+			infos: {
+				"": {
+					"UniswapV3Factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+					"Multicall2": "0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696",
+					"ProxyAdmin": "0xB753548F6E010e7e680BA186F9Ca1BdAB2E90cf2",
+					"TickLens": "0xbfd8137f7d1516D3ea5cA83523914859ec47F573",
+					"Quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
+					"SwapRouter": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+					"NFTDescriptor": "0x42B24A95702b9986e82d421cC3568932790A48Ec",
+					"NonfungibleTokenPositionDescriptor": "0x91ae842A5Ffd8d12023116943e72A606179294f3",
+					"TransparentUpgradeableProxy": "0xEe6A57eC80ea46401049E92587E52f5Ec1c24785",
+					"NonfungiblePositionManager": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
+					"V3Migrator": "0xA5644E29708357803b5A882D272c41cC0dF92B34",
+				},
+				"celo": {
+					"UniswapV3Factory": "0xAfE208a311B21f13EF87E33A90049fC17A7acDEc",
+					"Multicall2": "0x633987602DE5C4F337e3DbF265303A1080324204",
+					"ProxyAdmin": "0xc1b262Dd7643D4B7cA9e51631bBd900a564BF49A",
+					"TickLens": "0x5f115D9113F88e0a0Db1b5033D90D4a9690AcD3D",
+					"Quoter": "0x82825d0554fA07f7FC52Ab63c961F330fdEFa8E8",
+					"SwapRouter": "0x5615CDAb10dc425a742d643d949a7F474C01abc4",
+					"NFTDescriptor": "0xa9Fd765d85938D278cb0b108DbE4BF7186831186",
+					"NonfungibleTokenPositionDescriptor": "0x644023b316bB65175C347DE903B60a756F6dd554",
+					"TransparentUpgradeableProxy": "0x505B43c452AA4443e0a6B84bb37771494633Fde9",
+					"NonfungiblePositionManager": "0x3d79EdAaBC0EaB6F08ED885C05Fc0B014290D95A",
+					"V3Migrator": "0x3cFd4d48EDfDCC53D3f173F596f621064614C582",
+				},
+			},
+			_info: null,
+			
 			Pool,
 			Position,
 			
@@ -500,11 +530,6 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			_positionManager: null,
 			_quoter: null,
 			_router2: null,
-			
-			addressFactory: null,
-			addressPositionManager: null,
-			addressQuoter: null,
-			addressRouter2: null,
 			
 			FEE_RATE_K: 1e6,
 			tolerance: 0.01,
@@ -519,6 +544,39 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			now = Date.now();
 		}
 		return Math.floor(new Date(now).getTime() / 1000 + 60 * defi.deadlineMins);
+	}
+	get info() {
+		if (!this._info) {
+			this._info = cutil.clone(this.infos[this.chain.symbol] || this.infos[""]);
+		}
+		return this._info;
+	}
+	set info(info) {
+		this._info = info;
+	}
+	get addressFactory() {
+		return this.info["UniswapV3Factory"];
+	}
+	set addressFactory(addressFactory) {
+		this.info["UniswapV3Factory"] = addressFactory;
+	}
+	get addressPositionManager() {
+		return this.info["NonfungiblePositionManager"];
+	}
+	set addressPositionManager(addressPositionManager) {
+		this.info["NonfungiblePositionManager"] = addressPositionManager;
+	}
+	get addressQuoter() {
+		return this.info["Quoter"];
+	}
+	set addressQuoter(addressQuoter) {
+		this.info["Quoter"] = addressQuoter;
+	}
+	get addressRouter2() {
+		return this.info["SwapRouter"];
+	}
+	set addressRouter2(addressRouter2) {
+		this.info["SwapRouter"] = addressRouter2;
 	}
 	get factory() {
 		let defi = this;
@@ -944,7 +1002,6 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		if (cutil.isNilOrEmptyString(amount1_)) {
 			amount1_ = d(amount1).mul(10 ** decimals1).toFixed(0);
 		}
-		let fee = defi.rateToFee(feeRate);
 		let amount0Desired = amount0;
 		let amount1Desired = amount1;
 		let amount0Min = d(amount0Desired).mul(1 - defi.tolerance).toFixed(0);
