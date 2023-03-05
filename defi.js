@@ -4,6 +4,8 @@ import {cutil} from "@ghasemkiani/base";
 import {Obj} from "@ghasemkiani/base";
 import {chainer} from "@ghasemkiani/evm";
 
+import abiPool from "./abi/pool.json" assert {type: "json"};
+
 const PRECISION = 100;
 if (d.precision < PRECISION) {
 	d.set({precision: PRECISION});
@@ -51,19 +53,19 @@ class Pool extends Obj {
 		this.fee = cutil.isNil(feeRate) ? null : this.defi.rateToFee(feeRate);
 	}
 	get symbol() {
-		let {tokenId0, tokenId1, fee} = this;
-		return [tokenId0, tokenId1, fee].find(x => cutil.isNil(x)) ? null : `${tokenId0}/${tokenId1}@${cutil.asInteger(fee).toFixed(0).padStart(5, "0")}`;
+		let {tokenId0, tokenId1, feeRate} = this;
+		return [tokenId0, tokenId1, feeRate].find(x => cutil.isNil(x)) ? null : `${tokenId0}/${tokenId1}@${cutil.asString(feeRate)}`;
 	}
 	set symbol(symbol) {
 		if (cutil.isNil(symbol)) {
 			this.tokenId0 = null;
 			this.tokenId1 = null;
-			this.fee = null;
+			this.feeRate = null;
 		} else {
-			let [, tokenId0, tokenId1, fee] = /^(.*)\/(.*)@(.*)$/.exec(symbol);
+			let [, tokenId0, tokenId1, feeRate] = /^(.*)\/(.*)@(.*)$/.exec(symbol);
 			this.tokenId0 = tokenId0;
 			this.tokenId1 = tokenId1;
-			this.fee = fee;
+			this.feeRate = feeRate;
 		}
 	}
 	getNearestTick(tick) {
@@ -499,6 +501,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 					"TickLens": "0xbfd8137f7d1516D3ea5cA83523914859ec47F573",
 					"Quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
 					"SwapRouter": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+					"SwapRouter2": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
 					"NFTDescriptor": "0x42B24A95702b9986e82d421cC3568932790A48Ec",
 					"NonfungibleTokenPositionDescriptor": "0x91ae842A5Ffd8d12023116943e72A606179294f3",
 					"TransparentUpgradeableProxy": "0xEe6A57eC80ea46401049E92587E52f5Ec1c24785",
@@ -573,10 +576,10 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		this.info["Quoter"] = addressQuoter;
 	}
 	get addressRouter2() {
-		return this.info["SwapRouter"];
+		return this.info["SwapRouter2"];
 	}
 	set addressRouter2(addressRouter2) {
-		this.info["SwapRouter"] = addressRouter2;
+		this.info["SwapRouter2"] = addressRouter2;
 	}
 	get factory() {
 		let defi = this;
@@ -658,11 +661,15 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 	token(arg) {
 		let defi = this;
 		let {account} = defi;
+		let {chain} = defi;
 		if (cutil.isString(arg)) {
 			arg = {id: arg};
 		}
 		arg = {account, ...cutil.asObject(arg)};
 		let {id: tokenId} = arg;
+		if (!tokenId) {
+			tokenId = chain.tokenId(arg.address);
+		}
 		return (tokenId in defi.tokens) ? defi.tokens[tokenId] : (defi.tokens[tokenId] = super.token(arg));
 	}
 	pool(arg) {
@@ -781,7 +788,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let {chain} = defi;
 		
 		let contract = defi.contract({address, account});
-		await contract.toGetAbi();
+		await contract.toGetAbi(abiPool);
 		
 		let [
 			// immutables
@@ -999,9 +1006,6 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		priceLower = d(1.0001).pow(tickLower).div(10 ** (decimals1 - decimals0));
 		priceUpper = d(1.0001).pow(tickUpper).div(10 ** (decimals1 - decimals0));
 		
-		// amount1_:amount0_
-		let ratio_$ = d(1.0001).pow(tick * +0.5).minus(d(1.0001).pow(tickLower * +0.5)).div(d(1.0001).pow(tick * -0.5).minus(d(1.0001).pow(tickUpper * -0.5)));
-		
 		if (cutil.isNilOrEmptyString(amount0_) && !cutil.isNilOrEmptyString(amount0)) {
 			amount0_ = d(amount0).mul(10 ** decimals0).toFixed(0);
 		}
@@ -1009,8 +1013,18 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			amount1_ = d(amount1).mul(10 ** decimals1).toFixed(0);
 		}
 		
+		// amount1_:amount0_
+		let tck = tick < tickLower ? tickLower : tick > tickUpper ? tickUpper : tick;
+		let ratio_$ = d(1.0001).pow(tck * +0.5).minus(d(1.0001).pow(tickLower * +0.5)).div(d(1.0001).pow(tck * -0.5).minus(d(1.0001).pow(tickUpper * -0.5)));
+		
 		if (cutil.isNilOrEmptyString(amount0_) && cutil.isNilOrEmptyString(amount1_)) {
-			if (ratio_$.gt(1)) {
+			if (ratio_$.eq(0)) {
+				amount0_ = d(defi.tolerance).pow(-1).toFixed(0);
+				amount1_ = d(0).toFixed(0);
+			} else if (ratio_$.eq(Infinity)) {
+				amount0_ = d(0).toFixed(0);
+				amount1_ = d(defi.tolerance).pow(-1).toFixed(0);
+			} else if (ratio_$.gt(1)) {
 				amount0_ = d(defi.tolerance).pow(-1).toFixed(0);
 				amount1_ = d(amount0_).mul(ratio_$).toFixed(0);
 			} else {
@@ -1173,8 +1187,6 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			method = "multicall(bytes[])";
 			params = [calls];
 		}
-		
-		// console.log(JSON.stringify({method, params}, null, "\t"));
 		
 		let data = router2.callData(method, ...params);
 		let receipt = await router2.toSendData(data, value);
