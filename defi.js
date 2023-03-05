@@ -991,6 +991,11 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let {positionManager} = defi;
 		let {account} = defi;
 		let {address} = account;
+		
+		await positionManager.toGetAbi();
+		
+		let calls = [];
+		
 		let pool = await defi.toGetPool(tokenIdA, tokenIdB, feeRate);
 		let {addressToken0, addressToken1, token0: {id: tokenId0, decimals: decimals0}, token1: {id: tokenId1, decimals: decimals1}, fee, price, tick} = pool;
 		if (cutil.isNilOrEmptyString(tickLower)) {
@@ -1002,34 +1007,49 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		
 		tickLower = pool.getNearestTick(tickLower);
 		tickUpper = pool.getNearestTick(tickUpper);
+		console.log({tickLower, tick, tickUpper});
 		
-		priceLower = d(1.0001).pow(tickLower).div(10 ** (decimals1 - decimals0));
-		priceUpper = d(1.0001).pow(tickUpper).div(10 ** (decimals1 - decimals0));
+		console.log({priceLower, price, priceUpper});
+		priceLower = d(1.0001).pow(tickLower).div(10 ** (decimals1 - decimals0)).toNumber();
+		priceUpper = d(1.0001).pow(tickUpper).div(10 ** (decimals1 - decimals0)).toNumber();
+		console.log({priceLower, priceUpper});
 		
 		if (cutil.isNilOrEmptyString(amount0_) && !cutil.isNilOrEmptyString(amount0)) {
 			amount0_ = d(amount0).mul(10 ** decimals0).toFixed(0);
 		}
-		if (cutil.isNilOrEmptyString(amount1_) && cutil.isNilOrEmptyString(amount1)) {
+		if (cutil.isNilOrEmptyString(amount1_) && !cutil.isNilOrEmptyString(amount1)) {
 			amount1_ = d(amount1).mul(10 ** decimals1).toFixed(0);
 		}
 		
 		// amount1_:amount0_
-		let tck = tick < tickLower ? tickLower : tick > tickUpper ? tickUpper : tick;
+		let tck = d(tick).lt(tickLower) ? tickLower : d(tick).gt(tickUpper) ? tickUpper : tick;
 		let ratio_$ = d(1.0001).pow(tck * +0.5).minus(d(1.0001).pow(tickLower * +0.5)).div(d(1.0001).pow(tck * -0.5).minus(d(1.0001).pow(tickUpper * -0.5)));
 		
 		if (cutil.isNilOrEmptyString(amount0_) && cutil.isNilOrEmptyString(amount1_)) {
 			if (ratio_$.eq(0)) {
-				amount0_ = d(defi.tolerance).pow(-1).toFixed(0);
+				amount0_ = d(1).div(defi.tolerance).toFixed(0);
 				amount1_ = d(0).toFixed(0);
 			} else if (ratio_$.eq(Infinity)) {
 				amount0_ = d(0).toFixed(0);
-				amount1_ = d(defi.tolerance).pow(-1).toFixed(0);
+				amount1_ = d(1).div(defi.tolerance).toFixed(0);
 			} else if (ratio_$.gt(1)) {
-				amount0_ = d(defi.tolerance).pow(-1).toFixed(0);
+				amount0_ = d(1).div(defi.tolerance).toFixed(0);
 				amount1_ = d(amount0_).mul(ratio_$).toFixed(0);
 			} else {
-				amount1_ = d(defi.tolerance).pow(-1).toFixed(0);
+				amount1_ = d(1).div(defi.tolerance).toFixed(0);
 				amount0_ = d(amount1_).div(ratio_$).toFixed(0);
+			}
+		}
+		
+		console.log({amount0_, amount1_});
+		
+		for (let [token, amount_] of [
+			[pool.token0, amount0_],
+			[pool.token1, amount1_],
+		]) {
+			let allowance_ = await token.toGetAllowance_(account.address, positionManager.address);
+			if (d(allowance_).lt(amount_)) {
+				await token.toApprove_(positionManager.address, d(2).pow(256).minus(1).toFixed(0));
 			}
 		}
 		
@@ -1044,20 +1064,26 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let value = "0";
 		if (!dontWrap && chain.isWTok(addressToken0)) {
 			value = amount0Desired;
+		} else if (!dontWrap && chain.isWTok(addressToken1)) {
+			value = amount1Desired;
 		}
-		let method = "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))";
-		let params = [[addressToken0, addressToken1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline]];
-		if (chain.isWTok(addressToken0)) {
-			let calls = [
-				positionManager.callData(method, ...params),
-				positionManager.callData("refundETH"),
-			];
+		calls.push({
+			method: "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))",
+			params: [[addressToken0, addressToken1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline]],
+		});
+		if (chain.isWTok(addressToken0) || chain.isWTok(addressToken1)) {
+			calls.push({method: "refundETH", params: []});
+		}
+		let method;
+		let params;
+		if (calls.length === 1) {
+			({method, params} = calls[0]);
+		} else {
 			method = "multicall(bytes[])";
-			params = [calls];
-			
+			params = [calls.map(({method, params}) => positionManager.callData(method, ...params))];
 		}
 		let data = positionManager.callData(method, ...params);
-		let receipt = await router2.toSendData(data, value);
+		let receipt = await positionManager.toSendData(data, value);
 		let tokenId;
 		let liquidity;
 		for (let log of receipt.logs) {
