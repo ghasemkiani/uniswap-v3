@@ -985,7 +985,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let {account} = defi;
 		let {address} = account;
 		let pool = await defi.toGetPool(tokenIdA, tokenIdB, feeRate);
-		let {addressToken0: token0, addressToken1: token1, token0: {id: tokenId0, decimals: decimals0}, token1: {id: tokenId1, decimals: decimals1}, fee} = pool;
+		let {addressToken0, addressToken1, token0: {id: tokenId0, decimals: decimals0}, token1: {id: tokenId1, decimals: decimals1}, fee, price, tick} = pool;
 		if (cutil.isNilOrEmptyString(tickLower)) {
 			tickLower = d(priceLower).mul(10 ** (decimals1 - decimals0)).log().div(d(1.0001).log()).toFixed(0);
 		}
@@ -996,14 +996,31 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		tickLower = pool.getNearestTick(tickLower);
 		tickUpper = pool.getNearestTick(tickUpper);
 		
-		if (cutil.isNilOrEmptyString(amount0_)) {
+		priceLower = d(1.0001).pow(tickLower).div(10 ** (decimals1 - decimals0));
+		priceUpper = d(1.0001).pow(tickUpper).div(10 ** (decimals1 - decimals0));
+		
+		// amount1_:amount0_
+		let ratio_$ = d(1.0001).pow(tick * +0.5).minus(d(1.0001).pow(tickLower * +0.5)).div(d(1.0001).pow(tick * -0.5).minus(d(1.0001).pow(tickUpper * -0.5)));
+		
+		if (cutil.isNilOrEmptyString(amount0_) && !cutil.isNilOrEmptyString(amount0)) {
 			amount0_ = d(amount0).mul(10 ** decimals0).toFixed(0);
 		}
-		if (cutil.isNilOrEmptyString(amount1_)) {
+		if (cutil.isNilOrEmptyString(amount1_) && cutil.isNilOrEmptyString(amount1)) {
 			amount1_ = d(amount1).mul(10 ** decimals1).toFixed(0);
 		}
-		let amount0Desired = amount0;
-		let amount1Desired = amount1;
+		
+		if (cutil.isNilOrEmptyString(amount0_) && cutil.isNilOrEmptyString(amount1_)) {
+			if (ratio_$.gt(1)) {
+				amount0_ = d(defi.tolerance).pow(-1).toFixed(0);
+				amount1_ = d(amount0_).mul(ratio_$).toFixed(0);
+			} else {
+				amount1_ = d(defi.tolerance).pow(-1).toFixed(0);
+				amount0_ = d(amount1_).div(ratio_$).toFixed(0);
+			}
+		}
+		
+		let amount0Desired = amount0_;
+		let amount1Desired = amount1_;
 		let amount0Min = d(amount0Desired).mul(1 - defi.tolerance).toFixed(0);
 		let amount1Min = d(amount1Desired).mul(1 - defi.tolerance).toFixed(0);
 		if (cutil.isNilOrEmptyString(recipient)) {
@@ -1011,12 +1028,12 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		}
 		let deadline = defi.deadline();
 		let value = "0";
-		if (!dontWrap && chain.isWTok(token0)) {
+		if (!dontWrap && chain.isWTok(addressToken0)) {
 			value = amount0Desired;
 		}
 		let method = "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))";
-		let params = [[token0, token1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline]];
-		if (chain.isWTok(token0)) {
+		let params = [[addressToken0, addressToken1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline]];
+		if (chain.isWTok(addressToken0)) {
 			let calls = [
 				positionManager.callData(method, ...params),
 				positionManager.callData("refundETH"),
