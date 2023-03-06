@@ -985,7 +985,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		}
 		return result;
 	}
-	async toMintPosition({tokenIdA, tokenIdB, feeRate, priceLower, priceUpper, tickLower, tickUpper, amount0, amount1, amount0_, amount1_, recipient, dontWrap = false}) {
+	async toMintPosition({tokenIdA, tokenIdB, feeRate, priceLower, priceUpper, tickLower, tickUpper, tickWidth, amountA, amountB, amountA_, amountB_, recipient, dontWrap = false}) {
 		let defi = this;
 		let {chain} = defi;
 		let {positionManager} = defi;
@@ -997,12 +997,25 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let calls = [];
 		
 		let pool = await defi.toGetPool(tokenIdA, tokenIdB, feeRate);
+		let [amount0, amount1, amount0_, amount1_] = chain.eq(pool.tokenA.address, pool.token0.address) ?
+			[amountA, amountB, amountA_, amountB_] :
+			[amountB, amountA, amountB_, amountA_];
 		let {addressToken0, addressToken1, token0: {id: tokenId0, decimals: decimals0}, token1: {id: tokenId1, decimals: decimals1}, fee, price, tick} = pool;
-		if (cutil.isNilOrEmptyString(tickLower)) {
+		if (cutil.isNilOrEmptyString(tickLower) && !cutil.isNilOrEmptyString(priceLower)) {
 			tickLower = d(priceLower).mul(10 ** (decimals1 - decimals0)).log().div(d(1.0001).log()).toFixed(0);
 		}
-		if (cutil.isNilOrEmptyString(tickUpper)) {
+		if (cutil.isNilOrEmptyString(tickUpper) && !cutil.isNilOrEmptyString(priceUpper)) {
 			tickUpper = d(priceUpper).mul(10 ** (decimals1 - decimals0)).log().div(d(1.0001).log()).toFixed(0);
+		}
+		if (!cutil.isNilOrEmptyString(tickWidth)) {
+			if (cutil.isNilOrEmptyString(tickLower) && !cutil.isNilOrEmptyString(tickUpper)) {
+				tickLower = d(tickUpper).minus(tickWidth).toFixed(0);
+			} else if (cutil.isNilOrEmptyString(tickUpper) && !cutil.isNilOrEmptyString(tickLower)) {
+				tickUpper = d(tickLower).plus(tickWidth).toFixed(0);
+			} else if (cutil.isNilOrEmptyString(tickLower) && cutil.isNilOrEmptyString(tickUpper)) {
+				tickLower = d(tick).minus(d(tickWidth).div(2)).toFixed(0);
+				tickUpper = d(tick).plus(d(tickWidth).div(2)).toFixed(0);
+			}
 		}
 		
 		tickLower = pool.getNearestTick(tickLower);
@@ -1090,7 +1103,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		amount0 = d(amount0_).div(10 ** decimals0).toNumber();
 		amount1 = d(amount0_).div(10 ** decimals1).toNumber();
 		console.log({hash, tokenId, tickLower, tickUpper, liquidity, tokenId0, tokenId1, amount0, amount1, amount0_, amount1_});
-		return {receipt, tokenId, tickLower, tickUpper, liquidity, tokenId0, tokenId1, amount0, amount1, amount0_, amount1_};
+		return {receipt, hash, tokenId, liquidity, tickLower, tickUpper, tokenId0, tokenId1, amount0, amount1, amount0_, amount1_};
 	}
 	async toQuote({pathInfo, amountIn, amountIn_, amountOut, amountOut_, priceExternal}) {
 		let defi = this;
