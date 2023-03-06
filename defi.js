@@ -1084,28 +1084,12 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		}
 		let data = positionManager.callData(method, ...params);
 		let receipt = await positionManager.toSendData(data, value);
-		let tokenId;
-		let liquidity;
-		for (let log of receipt.logs) {
-			log.dec = await defi.toDecodeLog(log);
-			let {event: {name}, address} = log.dec;
-			if (chain.eq(address, defi.positionManager.address) && name === "Transfer") {
-				let {from, to} = log.dec;
-				if (chain.eq(from, chain.addressZero) && chain.eq(to, recipient)) {
-					({tokenId} = log.dec);
-				}
-			}
-			if (chain.eq(address, defi.positionManager.address) && name === "IncreaseLiquidity") {
-				let {tokenId: id} = log.dec;
-				if (tokenId === id) {
-					let {liquidity} = log.dec;
-					({amount0: amount0_} = log.dec);
-					({amount1: amount1_} = log.dec);
-					amount0 = d(amount0_).div(10 ** decimals0).toNumber();
-					amount1 = d(amount1_).div(10 ** decimals1).toNumber();
-				}
-			}
-		}
+		let resProcessTxMint = await defi.toProcessTxMint({receipt});
+		let {hash, tokenId, liquidity} = resProcessTxMint;
+		({amount0_, amount1_} = resProcessTxMint);
+		amount0 = d(amount0_).div(10 ** decimals0).toNumber();
+		amount1 = d(amount0_).div(10 ** decimals1).toNumber();
+		console.log({hash, tokenId, tickLower, tickUpper, liquidity, tokenId0, tokenId1, amount0, amount1, amount0_, amount1_});
 		return {receipt, tokenId, tickLower, tickUpper, liquidity, tokenId0, tokenId1, amount0, amount1, amount0_, amount1_};
 	}
 	async toQuote({pathInfo, amountIn, amountIn_, amountOut, amountOut_, priceExternal}) {
@@ -1258,6 +1242,60 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			}
 		}
 		return {receipt, tokenIdIn, tokenIdOut, amountIn, amountIn_, amountOut, amountOut_};
+	}
+	async toProcessTxMint({hash, tx, receipt, recipient}) {
+		let defi = this;
+		let {chain} = defi;
+		let {account} = defi;
+		let {address} = account;
+		let {positionManager} = defi;
+		await positionManager.toGetAbi();
+		let blockNumber;
+		if (!recipient) {
+			recipient = address;
+		}
+		if (!hash) {
+			hash = tx?.hash || receipt.logs?.[0]?.transactionHash;
+		}
+		if (!tx) {
+			tx = await chain.toGetTransaction(hash);
+		}
+		if (!tx) {
+			throw new Error(`Transaction not found.`);
+		}
+		if (!receipt) {
+			receipt = await chain.toGetTransactionReceipt(hash);
+		}
+		if (!receipt) {
+			throw new Error(`Transaction is pending.`);
+		}
+		({blockNumber} = (tx || receipt));
+		if (cutil.isNil(blockNumber)) {
+			throw new Error(`Transaction is pending.`);
+		}
+		let tokenId;
+		let liquidity;
+		let amount0_;
+		let amount1_;
+		for (let log of receipt.logs) {
+			log.dec = await defi.toDecodeLog(log);
+			let {event: {name}, address, decoded} = log.dec;
+			if (chain.eq(address, positionManager.address) && name === "Transfer") {
+				let {from, to} = decoded;
+				if (chain.eq(from, chain.addressZero) && chain.eq(to, recipient)) {
+					({tokenId} = decoded);
+				}
+			}
+			if (chain.eq(address, positionManager.address) && name === "IncreaseLiquidity") {
+				let {tokenId: id} = decoded;
+				if (tokenId === id) {
+					({liquidity} = decoded);
+					({amount0: amount0_} = decoded);
+					({amount1: amount1_} = decoded);
+				}
+			}
+		}
+		return {hash, tx, receipt, tokenId, liquidity, amount0_, amount1_};
 	}
 	async toProcessSwapTx(hash) {
 		let defi = this;
