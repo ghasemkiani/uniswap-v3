@@ -985,7 +985,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		}
 		return result;
 	}
-	async toMintPosition({tokenIdA, tokenIdB, feeRate, priceLower, priceUpper, tickLower, tickUpper, tickWidth, amountA, amountB, amountA_, amountB_, recipient, dontWrap = false}) {
+	async toMintPosition({tokenIdA, tokenIdB, feeRate, priceLower, priceUpper, tickLower, tickUpper, tickWidth, amountA, amountB, amountA_, amountB_, totalA, totalB, totalA_, totalB_, recipient, dontWrap = false}) {
 		let defi = this;
 		let {chain} = defi;
 		let {positionManager} = defi;
@@ -997,9 +997,9 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let calls = [];
 		
 		let pool = await defi.toGetPool(tokenIdA, tokenIdB, feeRate);
-		let [amount0, amount1, amount0_, amount1_] = chain.eq(pool.tokenA.address, pool.token0.address) ?
-			[amountA, amountB, amountA_, amountB_] :
-			[amountB, amountA, amountB_, amountA_];
+		let [amount0, amount1, amount0_, amount1_, total0, total1, total0_, total1_] = chain.eq(pool.tokenA.address, pool.token0.address) ?
+			[amountA, amountB, amountA_, amountB_, totalA, totalB, totalA_, totalB_] :
+			[amountB, amountA, amountB_, amountA_, totalB, totalA, totalB_, totalA_];
 		let {addressToken0, addressToken1, token0: {id: tokenId0, decimals: decimals0}, token1: {id: tokenId1, decimals: decimals1}, fee, price, tick} = pool;
 		if (cutil.isNilOrEmptyString(tickLower) && !cutil.isNilOrEmptyString(priceLower)) {
 			tickLower = d(priceLower).mul(10 ** (decimals1 - decimals0)).log().div(d(1.0001).log()).toFixed(0);
@@ -1033,13 +1033,39 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		if (cutil.isNilOrEmptyString(amount1_) && !cutil.isNilOrEmptyString(amount1)) {
 			amount1_ = d(amount1).mul(10 ** decimals1).toFixed(0);
 		}
+		if (cutil.isNilOrEmptyString(total0_) && !cutil.isNilOrEmptyString(total0)) {
+			total0_ = d(total0).mul(10 ** decimals0).toFixed(0);
+		}
+		if (cutil.isNilOrEmptyString(total1_) && !cutil.isNilOrEmptyString(total1)) {
+			total1_ = d(total1).mul(10 ** decimals1).toFixed(0);
+		}
 		
-		// amount1_:amount0_
+		let price_$ = d(price).div(10 ** (decimals1 - decimals0));
 		let tck = d(tick).lt(tickLower) ? tickLower : d(tick).gt(tickUpper) ? tickUpper : tick;
+		// amount1_:amount0_
 		let ratio_$ = d(1.0001).pow(tck * +0.5).minus(d(1.0001).pow(tickLower * +0.5)).div(d(1.0001).pow(tck * -0.5).minus(d(1.0001).pow(tickUpper * -0.5)));
 		
-		if (cutil.isNilOrEmptyString(amount0_) && cutil.isNilOrEmptyString(amount1_)) {
-			if (ratio_$.eq(0)) {
+		if (!cutil.isNilOrEmptyString(amount0_) && cutil.isNilOrEmptyString(amount1_)) {
+			amount1_ = d(amount0_).mul(ratio_$).toFixed(0);
+		} else if (cutil.isNilOrEmptyString(amount0_) && !cutil.isNilOrEmptyString(amount1_)) {
+			amount0_ = d(amount1_).div(ratio_$).toFixed(0);
+		} else if (cutil.isNilOrEmptyString(amount0_) && cutil.isNilOrEmptyString(amount1_)) {
+			if (!cutil.isNilOrEmptyString(total0_)) {
+				amount0_ = d(total0_).div(d(1).plus(ratio_$.div(price_$))).toFixed(0);
+				amount1_ = d(amount0_).mul(ratio_$).toFixed(0);
+				
+				console.log(`check:`);
+				console.log(`ratio:`);
+				console.log(d(amount1_).div(amount0_).toFixed(6));
+				console.log(ratio_$.toFixed(6));
+				console.log(`total:`);
+				console.log(d(amount0_).plus(d(amount1_).div(price_$)).toFixed(6));
+				console.log(d(total0_).toFixed(6));
+				
+			} else if (!cutil.isNilOrEmptyString(total1_)) {
+				amount0_ = d(total1_).div(ratio_$.plus(price_$)).toFixed(0);
+				amount1_ = d(amount0_).mul(ratio_$).toFixed(0);
+			} else if (ratio_$.eq(0)) {
 				amount0_ = d(1).div(defi.tolerance).toFixed(0);
 				amount1_ = d(0).toFixed(0);
 			} else if (ratio_$.eq(Infinity)) {
@@ -1101,7 +1127,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let {hash, tokenId, liquidity} = resProcessTxMint;
 		({amount0_, amount1_} = resProcessTxMint);
 		amount0 = d(amount0_).div(10 ** decimals0).toNumber();
-		amount1 = d(amount0_).div(10 ** decimals1).toNumber();
+		amount1 = d(amount1_).div(10 ** decimals1).toNumber();
 		console.log({hash, tokenId, tickLower, tickUpper, liquidity, tokenId0, tokenId1, amount0, amount1, amount0_, amount1_});
 		return {receipt, hash, tokenId, liquidity, tickLower, tickUpper, tokenId0, tokenId1, amount0, amount1, amount0_, amount1_};
 	}
