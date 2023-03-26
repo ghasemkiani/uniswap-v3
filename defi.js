@@ -338,58 +338,81 @@ class Position extends Obj {
 	get rr() {
 		return this.rr$.toNumber();
 	}
-	async toCollect(recipient = null) {
+	async toCollect({recipient = null, dontUnwrap = false, onlyData = false, verbose = false}) {
 		let position = this;
 		let {defi} = position;
 		let {chain} = defi;
-		let {web3} = chain;
+		
 		let {id} = position;
 		let {pool} = position;
+		let {token0, token1} = pool;
 		let {positionManager} = defi;
 		let {account} = defi;
 		let {address} = account;
 		
 		await positionManager.toGetAbi();
-		let {abi} = positionManager;
 		
-		let tokenId = id.toString();
+		let calls = [];
+		
 		if (!recipient) {
 			recipient = address;
 		}
+		let tokenId = d(position.id).toFixed(0);
 		let amount0Max = d(2).pow(128).minus(1).toFixed(0);
 		let amount1Max = d(2).pow(128).minus(1).toFixed(0);
-		let result = await positionManager.toCallWrite("collect", [tokenId, recipient, amount0Max, amount1Max]);
-		// console.log(JSON.stringify(result, null, "\t"));
-		let collected0_ = null;
-		let collected1_ = null;
-		let collected0 = null;
-		let collected1 = null;
-		let itemEvent = abi.find(({type, name}) => type === "event" && name === "Collect");
-		let dataEvent = web3.eth.abi.encodeEventSignature(itemEvent);
-		let {logs} = result;
-		let log = logs.find(({topics: [d, i]}) => d === dataEvent && parseInt(i) === parseInt(tokenId));
-		if (log) {
-			let {data: dataLog} = log;
-			// first item is index_topic_1
-			let decoded = web3.eth.abi.decodeParameters(itemEvent.inputs.map(({type}) => type).slice(1), dataLog);
-			collected0_ = decoded[1];
-			collected1_ = decoded[2];
-			if (pool) {
-				await pool.token0.toGetAbi();
-				await pool.token0.toGetDecimals();
-				await pool.token1.toGetAbi();
-				await pool.token1.toGetDecimals();
-				collected0 = pool.token0.unwrapNumber(collected0_);
-				collected1 = pool.token1.unwrapNumber(collected1_);
-				
+		
+		if (verbose) {
+			console.log(JSON.stringify({
+				method: "collect",
+				params: {params: {tokenId, recipient: dontUnwrap ? recipient : chain.addressZero, amount0Max, amount1Max}},
+			}, null, "\t"));
+		}
+		calls.push(positionManager.callData("collect((uint256,address,uint128,uint128))", [tokenId, dontUnwrap ? recipient : chain.addressZero, amount0Max, amount1Max]));
+		
+		let addressWTok = await defi.toGetWTokAddress();
+		for (let [addressToken, fee_] of [
+			[token0.address, position.fee0_],
+			[token1.address, position.fee1_],
+		]) {
+			let amountMinimum = d(fee_).mul(0.999).toFixed(0);
+			if (chain.eq(addressToken, addressWTok) && !dontUnwrap) {
+				if (verbose) {
+					console.log(JSON.stringify({
+						method: "unwrapWETH9",
+						params: {amountMinimum, recipient},
+					}, null, "\t"));
+				}
+				calls.push(positionManager.callData("unwrapWETH9(uint256,address)", amountMinimum, recipient));
+			} else {
+				if (verbose) {
+					console.log(JSON.stringify({
+						method: "sweepToken",
+						params: {addressToken, amountMinimum, recipient},
+					}, null, "\t"));
+				}
+				calls.push(positionManager.callData("sweepToken(address,uint256,address)", addressToken, amountMinimum, recipient));
 			}
 		}
-		return {
-			collected0_,
-			collected1_,
-			collected0,
-			collected1,
-		};
+		
+		let data = positionManager.callData("multicall", calls);
+		let result = {data};
+		
+		if (!onlyData) {
+			let receipt = await positionManager.toSendData(data);
+			cutil.assign(result, {receipt});
+			for (let log of cutil.asArray(receipt.logs)) {
+				log.dec = await defi.toDecodeLog(log);
+				let {event: {name}, address, decoded} = log.dec;
+				if (name === "Collect" && chain.eq(address, positionManager.address)) {
+					let {tokenId, recipient, amount0: amount0_, amount1: amount1_} = decoded;
+					let amount0 = token0.unwrapNumber(amount0_);
+					let amount1 = token1.unwrapNumber(amount1_);
+					cutil.assign(result, {amount0, amount0_, amount1, amount1_});
+				}
+			}
+		}
+		
+		return result;
 	}
 	async toDecreaseLiquidity(ratio = 1, dontUnwrap = false) {
 		let position = this;
@@ -1110,6 +1133,10 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			method: "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))",
 			params: [[addressToken0, addressToken1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline]],
 		});
+		console.log(JSON.stringify({
+				method: "mint((address,address,uint24,int24,int24,uint256,uint256,uint256,uint256,address,uint256))",
+				params: [[addressToken0, addressToken1, fee, tickLower, tickUpper, amount0Desired, amount1Desired, amount0Min, amount1Min, recipient, deadline]],
+			}, null, "\t"));
 		if (chain.isWTok(addressToken0) || chain.isWTok(addressToken1)) {
 			calls.push({method: "refundETH", params: []});
 		}
@@ -1336,19 +1363,24 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		}
 		return {hash, tx, receipt, tokenId, liquidity, amount0_, amount1_};
 	}
-	async toProcessSwapTx(hash) {
+	async toProcessSwapTx({hash, tx, receipt}) {
 		let defi = this;
 		let {chain} = defi;
-		let {web3} = chain;
-		let tx = await web3.eth.getTransaction(hash);
 		if (!tx) {
-			throw new Error(`Transaction not found.`);
+			tx = await web3.eth.getTransaction(hash);
+			if (!tx) {
+				throw new Error(`Transaction not found.`);
+			}
 		}
+		// console.log(JSON.stringify(tx, null, "\t"));
 		let {blockNumber} = tx;
 		if (cutil.isNil(blockNumber)) {
 			throw new Error(`Transaction is pending.`);
 		}
-		let receipt = await web3.eth.getTransactionReceipt(hash);
+		if (!receipt) {
+			receipt = await chain.toGetTransactionReceipt(hash);
+		}
+		// console.log(JSON.stringify(receipt, null, "\t"));
 		let tokenIdIn;
 		let tokenIdOut;
 		let amountIn;
@@ -1356,6 +1388,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		for (let log of cutil.asArray(receipt.logs)) {
 			try {
 				log.dec = await defi.toDecodeLog(log);
+				// console.log(JSON.stringify(log, null, "\t"));
 				let {event: {name}, address} = log.dec;
 				if (name === "Transfer") {
 					let {decoded: {from, to, value}} = log.dec;
