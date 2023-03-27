@@ -524,12 +524,30 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 					"TickLens": "0xbfd8137f7d1516D3ea5cA83523914859ec47F573",
 					"Quoter": "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
 					"SwapRouter": "0xE592427A0AEce92De3Edee1F18E0157C05861564",
-					"SwapRouter2": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+					"SwapRouter02": "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
 					"NFTDescriptor": "0x42B24A95702b9986e82d421cC3568932790A48Ec",
 					"NonfungibleTokenPositionDescriptor": "0x91ae842A5Ffd8d12023116943e72A606179294f3",
 					"TransparentUpgradeableProxy": "0xEe6A57eC80ea46401049E92587E52f5Ec1c24785",
 					"NonfungiblePositionManager": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
 					"V3Migrator": "0xA5644E29708357803b5A882D272c41cC0dF92B34",
+				},
+				"bnb": {
+					"UniswapV3Factory": "0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7",
+					"Multicall2": "",
+					"ProxyAdmin": "",
+					"TickLens": "0xD9270014D396281579760619CCf4c3af0501A47C",
+					"Quoter": "",
+					"QuoterV2": "0x78D78E420Da98ad378D7799bE8f4AF69033EB077",
+					"SwapRouter": "",
+					"SwapRouter02": "0xB971eF87ede563556b2ED4b1C0b0019111Dd85d2",
+					"NFTDescriptor": "",
+					"NonfungibleTokenPositionDescriptor": "",
+					"TransparentUpgradeableProxy": "",
+					"NonfungiblePositionManager": "0x7b8A01B39D58278b5DE7e48c8449c9f4F5170613",
+					"V3Migrator": "0x32681814957e0C13117ddc0c2aba232b5c9e760f",
+					"UniversalRouter": "0x5Dc88340E1c5c6366864Ee415d6034cadd1A9897",
+					"Permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+					"UniswapInterfaceMulticall": "0x963Df249eD09c358A4819E39d9Cd5736c3087184",
 				},
 				"celo": {
 					"UniswapV3Factory": "0xAfE208a311B21f13EF87E33A90049fC17A7acDEc",
@@ -599,10 +617,10 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		this.info["Quoter"] = addressQuoter;
 	}
 	get addressRouter2() {
-		return this.info["SwapRouter2"];
+		return this.info["SwapRouter02"];
 	}
 	set addressRouter2(addressRouter2) {
-		this.info["SwapRouter2"] = addressRouter2;
+		this.info["SwapRouter02"] = addressRouter2;
 	}
 	get factory() {
 		let defi = this;
