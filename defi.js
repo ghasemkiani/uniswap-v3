@@ -369,12 +369,15 @@ class Position extends Obj {
 		}
 		calls.push(positionManager.callData("collect((uint256,address,uint128,uint128))", [tokenId, dontUnwrap ? recipient : chain.addressZero, amount0Max, amount1Max]));
 		
+		let {fee0: amount0, fee1: amount1, fee0_: amount0_, fee1_: amount1_} = position;
+		let amountMinimum0_ = d(amount0_).mul(0.999).toFixed(0);
+		let amountMinimum1_ = d(amount1_).mul(0.999).toFixed(0);
+		
 		let addressWTok = await defi.toGetWTokAddress();
-		for (let [addressToken, fee_] of [
-			[token0.address, position.fee0_],
-			[token1.address, position.fee1_],
+		for (let [addressToken, amountMinimum] of [
+			[token0.address, amountMinimum0_],
+			[token1.address, amountMinimum1_],
 		]) {
-			let amountMinimum = d(fee_).mul(0.999).toFixed(0);
 			if (chain.eq(addressToken, addressWTok) && !dontUnwrap) {
 				if (verbose) {
 					console.log(JSON.stringify({
@@ -395,7 +398,7 @@ class Position extends Obj {
 		}
 		
 		let data = positionManager.callData("multicall", calls);
-		let result = {data};
+		let result = {amount0, amount0_, amount1, amount1_, amountMinimum0_, amountMinimum1_, calls, data};
 		
 		if (!onlyData) {
 			let receipt = await positionManager.toSendData(data);
@@ -534,25 +537,20 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 				"bsc": {
 					"UniswapV3Factory": "0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7",
 					"Multicall2": "",
-					// "ProxyAdmin": "0x589B4931D426146864f6e3DF652316a6D643ED8F",
 					"ProxyAdmin": "0xC9A7f5b73E853664044ab31936D0E6583d8b1c79",
-					// "TickLens": "0xf5F4496219F31CDCBa6130B5402873624585615a",
 					"TickLens": "0xD9270014D396281579760619CCf4c3af0501A47C",
 					"Quoter": "0x2dfE5D70641f626C7B1CE3eA74BDc2522557655d",
 					"QuoterV2": "0x78D78E420Da98ad378D7799bE8f4AF69033EB077",
 					"SwapRouter": "0x8ddA5A831C1BaFFc646C8D0351A59709367D7865",
 					"SwapRouter02": "0xB971eF87ede563556b2ED4b1C0b0019111Dd85d2",
-					"NFTDescriptor": "0xbcE549417A355b41205FA2fc58cEAe659C9d9328",
 					"NFTDescriptor": "0x10009Bc2247c6D1F75913baE9124a278186D481d",
-					"NonfungibleTokenPositionDescriptor": "",
+					"NonfungibleTokenPositionDescriptor": "0x4fA6EFFFFd7554302bf0F6A6841Dd29d246290D9",
 					"TransparentUpgradeableProxy": "0xAec98e489AE35F243eB63452f6ad233A6c97eE97",
 					"NonfungiblePositionManager": "0x7b8A01B39D58278b5DE7e48c8449c9f4F5170613",
 					"V3Migrator": "0x32681814957e0C13117ddc0c2aba232b5c9e760f",
 					"UniversalRouter": "0x5Dc88340E1c5c6366864Ee415d6034cadd1A9897",
 					"Permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
-					// "UniswapInterfaceMulticall": "0x581e2A6eF5e2032ACD1Eb0263ac8087fa2aEF41f",
 					"UniswapInterfaceMulticall": "0x963Df249eD09c358A4819E39d9Cd5736c3087184",
-					"UniswapWormholeMessageReceiver": "0xd73Bf3436f6D25cEe70aa80b7c9116A90B263F20",
 					"UniswapWormholeMessageReceiver": "0x341c1511141022cf8eE20824Ae0fFA3491F1302b",
 				},
 				"celo": {
@@ -1015,15 +1013,17 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 	async toGetPositions(tokenIdA, tokenIdB, feeRate, maxCount = 0, maxSearchCount = 0) {
 		let defi = this;
 		let {chain} = defi;
-		let pool = await defi.toGetPool(tokenIdA, tokenIdB, feeRate);
-		let {address: addressPool} = pool;
+		let pool;
+		if (tokenIdA && tokenIdB && !cutil.isNilOrEmptyString(feeRate)) {
+			pool = await defi.toGetPool(tokenIdA, tokenIdB, feeRate);
+		}
 		let positionCount = await defi.toGetPositionCount();
 		maxSearchCount ||= positionCount;
 		let result = [];
 		for (let i = 0; i < maxSearchCount; i++) {
 			let index = positionCount - 1 - i;
 			let position = await defi.toGetPositionAt(index);
-			if (chain.eq(position.pool.address, addressPool)) {
+			if (!pool || chain.eq(position.pool.address, pool.address)) {
 				result.push(position);
 				if (result.length === maxCount) {
 					break;
