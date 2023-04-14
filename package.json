@@ -1,6 +1,6 @@
 {
 	"name": "@ghasemkiani/uniswap-v3",
-	"version": "2.2.11",
+	"version": "2.3.0",
 	"description": "Uniswap v3 client",
 	"type": "module",
 	"main": "index.js",
@@ -9,7 +9,7 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://gitlab.com/ghasemkiani/uniswap-v3.git"
+		"url": "git+https://github.com/ghasemkiani/uniswap-v3.git"
 	},
 	"keywords": [
 		"blockchain",
@@ -21,9 +21,9 @@
 	"author": "Ghasem Kiani",
 	"license": "MIT",
 	"bugs": {
-		"url": "https://gitlab.com/ghasemkiani/uniswap-v3/issues"
+		"url": "https://github.com/ghasemkiani/uniswap-v3/issues"
 	},
-	"homepage": "https://gitlab.com/ghasemkiani/uniswap-v3#readme",
+	"homepage": "https://github.com/ghasemkiani/uniswap-v3#readme",
 	"dependencies": {
 		"@ghasemkiani/base": "github:ghasemkiani/base",
 		"@ghasemkiani/evm": "github:ghasemkiani/evm",
