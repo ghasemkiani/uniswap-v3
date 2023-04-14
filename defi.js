@@ -417,10 +417,161 @@ class Position extends Obj {
 		
 		return result;
 	}
-	async toDecreaseLiquidity(ratio = 1, dontUnwrap = false) {
+	async toIncreaseLiquidity({
+		amount0,
+		amount1,
+		amount0_,
+		amount1_,
+		total0,
+		total1,
+		total0_,
+		total1_,
+		liquidity,
+		dontUnwrap = false,
+	}) {
 		let position = this;
-		let {liquidity} = position;
-		if (d(liquidity).gt(0)) {
+		let {id: tokenId} = position;
+		let {defi} = position;
+		let {pool} = position;
+		let {token0} = pool;
+		let {token1} = pool;
+		let {id: tokenId0, address: addressToken0, decimals: decimals0} = token0;
+		let {id: tokenId1, address: addressToken1, decimals: decimals1} = token1;
+		
+		let result = {};
+		
+		// amount0 -> amount0_
+		// amount1 -> amount1_
+		if (cutil.isNilOrEmptyString(amount0_) && !cutil.isNilOrEmptyString(amount0)) {
+			amount0_ = await token0.toWrapNumber(amount0);
+		}
+		if (cutil.isNilOrEmptyString(amount1_) && !cutil.isNilOrEmptyString(amount1)) {
+			amount1_ = await token1.toWrapNumber(amount1);
+		}
+		
+		// amount0_ <= 0
+		// amount1_ <= 0
+		if (!cutil.isNilOrEmptyString(amount0_) && d(amount0_).lte(0)) {
+			if (d(amount0_).eq(0)) {
+				amount0_ = d(await token0.toWrapNumber(defi.reserveBalances[tokenId0])).mul(-1).toFixed(0);
+			}
+			let balance0_ = (!dontWrap && chain.isWTok(addressToken0)) ? await account.toGetBalance_() : await account.toGetTokenBalance_(tokenId0);
+			amount0_ = d(balance0_).plus(amount0_).toFixed(0);
+		}
+		if (!cutil.isNilOrEmptyString(amount1_) && d(amount1_).lte(0)) {
+			if (d(amount1_).eq(0)) {
+				amount1_ = d(await token1.toWrapNumber(defi.reserveBalances[tokenId1])).mul(-1).toFixed(0);
+			}
+			let balance1_ = (!dontWrap && chain.isWTok(addressToken1)) ? await account.toGetBalance_() : await account.toGetTokenBalance_(tokenId1);
+			amount1_ = d(balance1_).plus(amount1_).toFixed(0);
+		}
+		
+		// total0 -> total0_
+		// total1 -> total1_
+		if (cutil.isNilOrEmptyString(total0_) && !cutil.isNilOrEmptyString(total0)) {
+			total0_ = await token0.toWrapNumber(total0);
+		}
+		if (cutil.isNilOrEmptyString(total1_) && !cutil.isNilOrEmptyString(total1)) {
+			total1_ = await token1.toWrapNumber(total1);
+		}
+		
+		let {tick} = pool;
+		let {price} = pool;
+		let {tickLower, tickUpper} = position;
+		let price_$ = d(price).div(10 ** (decimals1 - decimals0));
+		let tck = d(tick).lt(tickLower) ? tickLower : d(tick).gt(tickUpper) ? tickUpper : tick;
+		// amount1_:amount0_
+		let ratio_$ = d(1.0001).pow(tck * +0.5).minus(d(1.0001).pow(tickLower * +0.5)).div(d(1.0001).pow(tck * -0.5).minus(d(1.0001).pow(tickUpper * -0.5)));
+		
+		if (!cutil.isNilOrEmptyString(amount0_) && cutil.isNilOrEmptyString(amount1_)) {
+			// amount0_ -> amount1_
+			amount1_ = d(amount0_).mul(ratio_$).toFixed(0);
+		} else if (cutil.isNilOrEmptyString(amount0_) && !cutil.isNilOrEmptyString(amount1_)) {
+			// amount1_ -> amount0_
+			amount0_ = d(amount1_).div(ratio_$).toFixed(0);
+		} else if (cutil.isNilOrEmptyString(amount0_) && cutil.isNilOrEmptyString(amount1_)) {
+			if (!cutil.isNilOrEmptyString(total0_)) {
+				// total0_ -> amount0_, amount1_
+				if (ratio_$.eq(Infinity)) {
+					amount0_ = d(0).toFixed(0);
+					amount1_ = d(total0_).mul(price_$).toFixed(0);
+				} else {
+					amount0_ = d(total0_).div(d(1).plus(ratio_$.div(price_$))).toFixed(0);
+					amount1_ = d(amount0_).mul(ratio_$).toFixed(0);
+				}
+			} else if (!cutil.isNilOrEmptyString(total1_)) {
+				// total1_ -> amount0_, amount1_
+				if (ratio_$.eq(0)) {
+					amount0_ = d(total1_).div(price_$).toFixed(0);
+					amount1_ = d(0).toFixed(0);
+				} else {
+					amount0_ = d(total1_).div(ratio_$.plus(price_$)).toFixed(0);
+					amount1_ = d(amount0_).mul(ratio_$).toFixed(0);
+				}
+			}
+		}
+		
+		console.log({amount0_, amount1_});
+		
+		for (let [token, amount_] of [
+			[token0, amount0_],
+			[token1, amount1_],
+		]) {
+			let allowance_ = await token.toGetAllowance_(account.address, positionManager.address);
+			if (d(allowance_).lt(amount_)) {
+				await token.toApprove_(positionManager.address, d(2).pow(256).minus(1).toFixed(0));
+			}
+		}
+		
+		let amount0Desired = d(amount0_).toFixed(0);
+		let amount1Desired = d(amount1_).toFixed(0);
+		
+		let {tolerance} = defi;
+		let amount0Min = d(amount0Desired).mul(1 - tolerance).toFixed(0);
+		let amount1Min = d(amount1Desired).mul(1 - tolerance).toFixed(0);
+		
+		if (d(amount0Min).lt(d(0))) {
+			amount0Min = d(0).toFixed(0);
+		}
+		if (d(amount1Min).lt(d(0))) {
+			amount1Min = d(0).toFixed(0);
+		}
+		
+		let value = d(0).toFixed(0);
+		if (!dontUnwrap && chain.isWTok(token0)) {
+			value = amount0Desired;
+		} else if (!dontUnwrap && chain.isWTok(token1)) {
+			value = amount1Desired;
+		}
+		
+		let deadline = defi.deadline();
+		let calls = [];
+		calls.push(positionManager.callData("increaseLiquidity", [tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline]));
+		calls.push(positionManager.callData("refundETH"));
+		
+		let data = positionManager.callData("multicall", calls);
+		let receipt = await positionManager.toSendData(data);
+		
+		cutil.assign(result, {receipt});
+		
+		for (let log of cutil.asArray(receipt.logs)) {
+			log.dec = await defi.toDecodeLog(log);
+			let {event: {name}, address} = log.dec;
+			if (name === "IncreaseLiquidity") {
+				let {decoded: {tokenId, liquidity, amount0: amount0_, amount1: amount1_}} = log.dec;
+				if (cutil.asInteger(tokenId) === cutil.asInteger(position.id)) {
+					let amount0 = await token0.toUnwrapNumber(amount0_);
+					let amount1 = await token1.toUnwrapNumber(amount1_);
+					cutil.assign(result, {liquidity, amount0, amount1, amount0_, amount1_});
+				}
+			}
+		}
+		return result;
+	}
+	async toDecreaseLiquidity({ratio = 1, dontUnwrap = false}) {
+		let position = this;
+		let result;
+		if (d(position.liquidity).gt(0)) {
 			let calls = [];
 			
 			let {id: tokenId, amount0_, amount1_} = position;
@@ -433,7 +584,7 @@ class Position extends Obj {
 			await positionManager.toGetAbi();
 			let {abi} = positionManager;
 			
-			liquidity = d(liquidity).mul(ratio).toFixed(0);
+			let liquidity = d(position.liquidity).mul(ratio).toFixed(0);
 			let amount0Min = d(amount0_).mul(ratio).mul(0.9).toFixed(0);
 			let amount1Min = d(amount1_).mul(ratio).mul(0.9).toFixed(0);
 			let deadline = defi.deadline();
@@ -460,10 +611,24 @@ class Position extends Obj {
 			}
 			
 			let data = positionManager.callData("multicall", calls);
-			let {hash} = await positionManager.toSendData(data);
+			let receipt = await positionManager.toSendData(data);
 			
-			console.log(`decreaseLiquidity:\n${hash}`);
+			result = {receipt};
+			
+			for (let log of cutil.asArray(receipt.logs)) {
+				log.dec = await defi.toDecodeLog(log);
+				let {event: {name}, address} = log.dec;
+				if (name === "DecreaseLiquidity") {
+					let {decoded: {tokenId, liquidity, amount0: amount0_, amount1: amount1_}} = log.dec;
+					if (cutil.asInteger(tokenId) === cutil.asInteger(position.id)) {
+						let amount0 = await position.pool.token0.toUnwrapNumber(amount0_);
+						let amount1 = await position.pool.token1.toUnwrapNumber(amount1_);
+						cutil.assign(result, {liquidity, amount0, amount1, amount0_, amount1_});
+					}
+				}
+			}
 		}
+		return result;
 	}
 	async toProportionalize({amnt0_, amnt1_, priceExternal, pathInfos}) {
 		let position = this;
@@ -536,6 +701,11 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 				},
 				"bsc": {
 					"UniswapV3Factory": "0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7",
+					"NonfungiblePositionManager": "0x7b8A01B39D58278b5DE7e48c8449c9f4F5170613",
+					"UniversalRouter": "0x5Dc88340E1c5c6366864Ee415d6034cadd1A9897",
+					"Permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+					"Forwarder": "0x059FFAFdC6eF594230dE44F824E2bD0A51CA5dED",
+					"ForwarderFactory": "0xFfa397285Ce46FB78C588a9e993286AaC68c37cD",
 					"Multicall2": "",
 					"ProxyAdmin": "0xC9A7f5b73E853664044ab31936D0E6583d8b1c79",
 					"TickLens": "0xD9270014D396281579760619CCf4c3af0501A47C",
@@ -544,12 +714,9 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 					"SwapRouter": "0x8ddA5A831C1BaFFc646C8D0351A59709367D7865",
 					"SwapRouter02": "0xB971eF87ede563556b2ED4b1C0b0019111Dd85d2",
 					"NFTDescriptor": "0x10009Bc2247c6D1F75913baE9124a278186D481d",
-					"NonfungibleTokenPositionDescriptor": "0x4fA6EFFFFd7554302bf0F6A6841Dd29d246290D9",
+					"NonfungibleTokenPositionDescriptor": "",
 					"TransparentUpgradeableProxy": "0xAec98e489AE35F243eB63452f6ad233A6c97eE97",
-					"NonfungiblePositionManager": "0x7b8A01B39D58278b5DE7e48c8449c9f4F5170613",
 					"V3Migrator": "0x32681814957e0C13117ddc0c2aba232b5c9e760f",
-					"UniversalRouter": "0x5Dc88340E1c5c6366864Ee415d6034cadd1A9897",
-					"Permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3",
 					"UniswapInterfaceMulticall": "0x963Df249eD09c358A4819E39d9Cd5736c3087184",
 					"UniswapWormholeMessageReceiver": "0x341c1511141022cf8eE20824Ae0fFA3491F1302b",
 				},
@@ -677,7 +844,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 	get reserveBalances() {
 		if (!this._reserveBalances) {
 			this._reserveBalances = {
-				[this.chain.tok]: 0.25,
+				[this.chain.wtok]: 0.25,
 			};
 		}
 		return this._reserveBalances;
@@ -686,10 +853,10 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		this._reserveBalances = reserveBalances;
 	}
 	get reserveTokBalance() {
-		return this.reserveBalances[this.chain.tok];
+		return this.reserveBalances[this.chain.wtok];
 	}
 	set reserveTokBalance(reserveTokBalance) {
-		this.reserveBalances[this.chain.tok] = reserveTokBalance;
+		this.reserveBalances[this.chain.wtok] = reserveTokBalance;
 	}
 	reserveBalance(tokenId) {
 		return this.reserveBalances[tokenId] || 0;
@@ -1080,6 +1247,16 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		if (cutil.isNilOrEmptyString(amount1_) && !cutil.isNilOrEmptyString(amount1)) {
 			amount1_ = d(amount1).mul(10 ** decimals1).toFixed(0);
 		}
+		
+		if (!cutil.isNilOrEmptyString(amount0_) && d(amount0_).lte(0)) {
+			let balance0_ = (!dontWrap && chain.isWTok(addressToken0)) ? await account.toGetBalance_() : await account.toGetTokenBalance_(tokenId0);
+			amount0_ = d(balance0_).plus(amount0_).toFixed(0);
+		}
+		if (!cutil.isNilOrEmptyString(amount1_) && d(amount1_).lte(0)) {
+			let balance1_ = (!dontWrap && chain.isWTok(addressToken1)) ? await account.toGetBalance_() : await account.toGetTokenBalance_(tokenId1);
+			amount1_ = d(balance1_).plus(amount1_).toFixed(0);
+		}
+		
 		if (cutil.isNilOrEmptyString(total0_) && !cutil.isNilOrEmptyString(total0)) {
 			total0_ = d(total0).mul(10 ** decimals0).toFixed(0);
 		}
