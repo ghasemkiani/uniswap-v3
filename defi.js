@@ -427,11 +427,17 @@ class Position extends Obj {
 		total0_,
 		total1_,
 		liquidity,
+		ratio,
 		dontUnwrap = false,
+		verbose = false,
 	}) {
 		let position = this;
 		let {id: tokenId} = position;
 		let {defi} = position;
+		let {chain} = defi;
+		let {account} = defi;
+		let {positionManager} = defi;
+		await positionManager.toGetAbi();
 		let {pool} = position;
 		let {token0} = pool;
 		let {token1} = pool;
@@ -453,16 +459,20 @@ class Position extends Obj {
 		// amount1_ <= 0
 		if (!cutil.isNilOrEmptyString(amount0_) && d(amount0_).lte(0)) {
 			if (d(amount0_).eq(0)) {
-				amount0_ = d(await token0.toWrapNumber(defi.reserveBalances[tokenId0])).mul(-1).toFixed(0);
+				let reserveBalance = defi.reserveBalances[tokenId0] || 0;
+				let reserveBalance_ = await token0.toWrapNumber(reserveBalance);
+				amount0_ = d(reserveBalance_).mul(-1).toFixed(0);
 			}
-			let balance0_ = (!dontWrap && chain.isWTok(addressToken0)) ? await account.toGetBalance_() : await account.toGetTokenBalance_(tokenId0);
+			let balance0_ = (!dontUnwrap && chain.isWTok(addressToken0)) ? await account.toGetBalance_() : await account.toGetTokenBalance_(tokenId0);
 			amount0_ = d(balance0_).plus(amount0_).toFixed(0);
 		}
 		if (!cutil.isNilOrEmptyString(amount1_) && d(amount1_).lte(0)) {
 			if (d(amount1_).eq(0)) {
-				amount1_ = d(await token1.toWrapNumber(defi.reserveBalances[tokenId1])).mul(-1).toFixed(0);
+				let reserveBalance = defi.reserveBalances[tokenId1] || 0;
+				let reserveBalance_ = await token0.toWrapNumber(reserveBalance);
+				amount1_ = d(reserveBalance_).mul(-1).toFixed(0);
 			}
-			let balance1_ = (!dontWrap && chain.isWTok(addressToken1)) ? await account.toGetBalance_() : await account.toGetTokenBalance_(tokenId1);
+			let balance1_ = (!dontUnwrap && chain.isWTok(addressToken1)) ? await account.toGetBalance_() : await account.toGetTokenBalance_(tokenId1);
 			amount1_ = d(balance1_).plus(amount1_).toFixed(0);
 		}
 		
@@ -511,15 +521,28 @@ class Position extends Obj {
 			}
 		}
 		
-		console.log({amount0_, amount1_});
+		if (!cutil.isNilOrEmptyString(ratio) || !cutil.isNilOrEmptyString(liquidity)) {
+			let r$ = !cutil.isNilOrEmptyString(ratio) ? d(r) : d(liquidity).div(position.liquidity);
+			amount0_ = r$.mul(position.amount0_);
+			amount1_ = r$.mul(position.amount1_);
+		}
+		
+		if (verbose) {
+			console.log({amount0_, amount1_});
+		}
 		
 		for (let [token, amount_] of [
 			[token0, amount0_],
 			[token1, amount1_],
 		]) {
-			let allowance_ = await token.toGetAllowance_(account.address, positionManager.address);
-			if (d(allowance_).lt(amount_)) {
-				await token.toApprove_(positionManager.address, d(2).pow(256).minus(1).toFixed(0));
+			if (!chain.isWTok(token) || dontUnwrap) {
+				let allowance_ = await token.toGetAllowance_(account.address, positionManager.address);
+				if (d(allowance_).lt(amount_)) {
+					if (verbose) {
+						console.log(`Approving ${token.id}`);
+					}
+					await token.toApprove_(positionManager.address, d(2).pow(256).minus(1).toFixed(0));
+				}
 			}
 		}
 		
@@ -543,14 +566,22 @@ class Position extends Obj {
 		} else if (!dontUnwrap && chain.isWTok(token1)) {
 			value = amount1Desired;
 		}
-		
 		let deadline = defi.deadline();
+		
+		if (verbose) {
+			console.log(JSON.stringify({
+				mathod: "increaseLiquidity",
+				params: {
+					params: {tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline},
+				},
+			}, null, "\t"));
+		}
 		let calls = [];
 		calls.push(positionManager.callData("increaseLiquidity", [tokenId, amount0Desired, amount1Desired, amount0Min, amount1Min, deadline]));
 		calls.push(positionManager.callData("refundETH"));
 		
 		let data = positionManager.callData("multicall", calls);
-		let receipt = await positionManager.toSendData(data);
+		let receipt = await positionManager.toSendData(data, value);
 		
 		cutil.assign(result, {receipt});
 		
@@ -732,6 +763,19 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 					"TransparentUpgradeableProxy": "0x505B43c452AA4443e0a6B84bb37771494633Fde9",
 					"NonfungiblePositionManager": "0x3d79EdAaBC0EaB6F08ED885C05Fc0B014290D95A",
 					"V3Migrator": "0x3cFd4d48EDfDCC53D3f173F596f621064614C582",
+				},
+				"pcs": {
+					"PancakeV3Factory": "0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865",
+					"PancakeV3PoolDeployer": "0x41ff9AA7e16B8B1a8a8dc4f0eFacd93D02d071c9",
+					"SwapRouter (v3)": "0x1b81D678ffb9C0263b24A97847620C99d213eB14",
+					"V3Migrator": "0xbC203d7f83677c7ed3F7acEc959963E7F4ECC5C2",
+					"NonfungiblePositionManager": "0x46A15B0b27311cedF172AB29E4f4766fbE7F4364",
+					"MixedRouteQuoterV1": "0x678Aa4bF4E210cf2166753e054d5b7c31cc7fa86",
+					"QuoterV2": "0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997",
+					"TickLens": "0x9a489505a00cE272eAa5e07Dba6491314CaE3796",
+					"TokenValidator": "0x864ED564875BdDD6F421e226494a0E7c071C06f8",
+					"PancakeInterfaceMulticall": "0xac1cE734566f390A94b00eb9bf561c2625BF44ea",
+					"SmartRouterV3": "0x13f4EA83D0bd40E75C8222255bc855a974568Dd4",
 				},
 			},
 			_info: null,
@@ -1652,28 +1696,32 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			amountOut = tokenOut.unwrapNumber(amountOut_);
 		}
 		let isForward = !!amountIn_;
-		
 		let routes = pathInfos.map(pathInfo => ({pathInfo}));
 		
 		for (let route of routes) {
-			let {pathInfo} = route;
-			let path = defi.pathFromTokenIdsAndFees(pathInfo);
-			if (isForward) {
-				amountOut_ = await quoter.toCallRead("quoteExactInput", path, amountIn_);
-				amountOut = tokenOut.unwrapNumber(amountOut_);
-			} else {
-				// ??????
-				pathInfo = pathInfo.reverse();
-				path = defi.pathFromTokenIdsAndFees(pathInfo);
-				amountIn_ = await quoter.toCallRead("quoteExactOutput", path, amountOut_);
-				amountIn = tokenIn.unwrapNumber(amountIn_);
+			try {
+				let {pathInfo} = route;
+				let path = defi.pathFromTokenIdsAndFees(pathInfo);
+				if (isForward) {
+					amountOut_ = await quoter.toCallRead("quoteExactInput", path, amountIn_);
+					amountOut = tokenOut.unwrapNumber(amountOut_);
+				} else {
+					// ??????
+					pathInfo = pathInfo.reverse();
+					path = defi.pathFromTokenIdsAndFees(pathInfo);
+					amountIn_ = await quoter.toCallRead("quoteExactOutput", path, amountOut_);
+					amountIn = tokenIn.unwrapNumber(amountIn_);
+				}
+				
+				let price = amountOut / amountIn;
+				let slippage = 1 - (price / priceExternal);
+				cutil.assign(route, {path, amountIn, amountIn_, amountOut, amountOut_, price, slippage});
+			} catch(e) {
+				// low liquidity paths cause errors
+				console.log(`Error in quoting path '${route.pathInfo.join(":")}'`);
 			}
-			
-			let price = amountOut / amountIn;
-			let slippage = 1 - (price / priceExternal);
-			cutil.assign(route, {path, amountIn, amountIn_, amountOut, amountOut_, price, slippage});
 		}
-		
+		routes = routes.filter(({path}) => !!path);
 		routes.sort(({slippage: a}, {slippage: b}) => a - b);
 		return routes;
 	}
