@@ -448,16 +448,16 @@ class Position extends Obj {
 		
 		// amount0 -> amount0_
 		// amount1 -> amount1_
-		if (cutil.isNilOrEmptyString(amount0_) && !cutil.isNilOrEmptyString(amount0)) {
+		if (cutil.na(amount0_) && !cutil.na(amount0)) {
 			amount0_ = await token0.toWrapNumber(amount0);
 		}
-		if (cutil.isNilOrEmptyString(amount1_) && !cutil.isNilOrEmptyString(amount1)) {
+		if (cutil.na(amount1_) && !cutil.na(amount1)) {
 			amount1_ = await token1.toWrapNumber(amount1);
 		}
 		
 		// amount0_ <= 0
 		// amount1_ <= 0
-		if (!cutil.isNilOrEmptyString(amount0_) && d(amount0_).lte(0)) {
+		if (!cutil.na(amount0_) && d(amount0_).lte(0)) {
 			if (d(amount0_).eq(0)) {
 				let reserveBalance = defi.reserveBalances[tokenId0] || 0;
 				let reserveBalance_ = await token0.toWrapNumber(reserveBalance);
@@ -466,7 +466,7 @@ class Position extends Obj {
 			let balance0_ = (!dontUnwrap && chain.isWTok(addressToken0)) ? await account.toGetBalance_() : await account.toGetTokenBalance_(tokenId0);
 			amount0_ = d(balance0_).plus(amount0_).toFixed(0);
 		}
-		if (!cutil.isNilOrEmptyString(amount1_) && d(amount1_).lte(0)) {
+		if (!cutil.na(amount1_) && d(amount1_).lte(0)) {
 			if (d(amount1_).eq(0)) {
 				let reserveBalance = defi.reserveBalances[tokenId1] || 0;
 				let reserveBalance_ = await token0.toWrapNumber(reserveBalance);
@@ -478,10 +478,10 @@ class Position extends Obj {
 		
 		// total0 -> total0_
 		// total1 -> total1_
-		if (cutil.isNilOrEmptyString(total0_) && !cutil.isNilOrEmptyString(total0)) {
+		if (cutil.na(total0_) && !cutil.na(total0)) {
 			total0_ = await token0.toWrapNumber(total0);
 		}
-		if (cutil.isNilOrEmptyString(total1_) && !cutil.isNilOrEmptyString(total1)) {
+		if (cutil.na(total1_) && !cutil.na(total1)) {
 			total1_ = await token1.toWrapNumber(total1);
 		}
 		
@@ -493,14 +493,14 @@ class Position extends Obj {
 		// amount1_:amount0_
 		let ratio_$ = d(1.0001).pow(tck * +0.5).minus(d(1.0001).pow(tickLower * +0.5)).div(d(1.0001).pow(tck * -0.5).minus(d(1.0001).pow(tickUpper * -0.5)));
 		
-		if (!cutil.isNilOrEmptyString(amount0_) && cutil.isNilOrEmptyString(amount1_)) {
+		if (!cutil.na(amount0_) && cutil.na(amount1_)) {
 			// amount0_ -> amount1_
 			amount1_ = d(amount0_).mul(ratio_$).toFixed(0);
-		} else if (cutil.isNilOrEmptyString(amount0_) && !cutil.isNilOrEmptyString(amount1_)) {
+		} else if (cutil.na(amount0_) && !cutil.na(amount1_)) {
 			// amount1_ -> amount0_
 			amount0_ = d(amount1_).div(ratio_$).toFixed(0);
-		} else if (cutil.isNilOrEmptyString(amount0_) && cutil.isNilOrEmptyString(amount1_)) {
-			if (!cutil.isNilOrEmptyString(total0_)) {
+		} else if (cutil.na(amount0_) && cutil.na(amount1_)) {
+			if (!cutil.na(total0_)) {
 				// total0_ -> amount0_, amount1_
 				if (ratio_$.eq(Infinity)) {
 					amount0_ = d(0).toFixed(0);
@@ -509,7 +509,7 @@ class Position extends Obj {
 					amount0_ = d(total0_).div(d(1).plus(ratio_$.div(price_$))).toFixed(0);
 					amount1_ = d(amount0_).mul(ratio_$).toFixed(0);
 				}
-			} else if (!cutil.isNilOrEmptyString(total1_)) {
+			} else if (!cutil.na(total1_)) {
 				// total1_ -> amount0_, amount1_
 				if (ratio_$.eq(0)) {
 					amount0_ = d(total1_).div(price_$).toFixed(0);
@@ -521,8 +521,8 @@ class Position extends Obj {
 			}
 		}
 		
-		if (!cutil.isNilOrEmptyString(ratio) || !cutil.isNilOrEmptyString(liquidity)) {
-			let r$ = !cutil.isNilOrEmptyString(ratio) ? d(r) : d(liquidity).div(position.liquidity);
+		if (!cutil.na(ratio) || !cutil.na(liquidity)) {
+			let r$ = !cutil.na(ratio) ? d(r) : d(liquidity).div(position.liquidity);
 			amount0_ = r$.mul(position.amount0_);
 			amount1_ = r$.mul(position.amount1_);
 		}
@@ -1225,7 +1225,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let defi = this;
 		let {chain} = defi;
 		let pool;
-		if (tokenIdA && tokenIdB && !cutil.isNilOrEmptyString(feeRate)) {
+		if (tokenIdA && tokenIdB && !cutil.na(feeRate)) {
 			pool = await defi.toGetPool(tokenIdA, tokenIdB, feeRate);
 		}
 		let positionCount = await defi.toGetPositionCount();
@@ -1243,7 +1243,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		}
 		return result;
 	}
-	async toMintPosition({tokenIdA, tokenIdB, feeRate, priceLower, priceUpper, tickLower, tickUpper, tickWidth, amountA, amountB, amountA_, amountB_, totalA, totalB, totalA_, totalB_, recipient, dontWrap = false}) {
+	async toMintPosition({tokenIdA, tokenIdB, feeRate, priceLower, priceUpper, diffTickLower, diffTickUpper, tickLower, tickUpper, tickWidth, amountA, amountB, amountA_, amountB_, totalA, totalB, totalA_, totalB_, recipient, dontWrap = false}) {
 		let defi = this;
 		let {chain} = defi;
 		let {positionManager} = defi;
@@ -1259,18 +1259,24 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			[amountA, amountB, amountA_, amountB_, totalA, totalB, totalA_, totalB_] :
 			[amountB, amountA, amountB_, amountA_, totalB, totalA, totalB_, totalA_];
 		let {addressToken0, addressToken1, token0: {id: tokenId0, decimals: decimals0}, token1: {id: tokenId1, decimals: decimals1}, fee, price, tick} = pool;
-		if (cutil.isNilOrEmptyString(tickLower) && !cutil.isNilOrEmptyString(priceLower)) {
+		if (cutil.a(diffTickLower)) {
+			tickLower = d(tick).plus(diffTickLower).toFixed(0);
+		}
+		if (cutil.a(diffTickUpper)) {
+			tickUpper = d(tick).plus(diffTickUpper).toFixed(0);
+		}
+		if (cutil.na(tickLower) && !cutil.na(priceLower)) {
 			tickLower = d(priceLower).mul(10 ** (decimals1 - decimals0)).log().div(d(1.0001).log()).toFixed(0);
 		}
-		if (cutil.isNilOrEmptyString(tickUpper) && !cutil.isNilOrEmptyString(priceUpper)) {
+		if (cutil.na(tickUpper) && !cutil.na(priceUpper)) {
 			tickUpper = d(priceUpper).mul(10 ** (decimals1 - decimals0)).log().div(d(1.0001).log()).toFixed(0);
 		}
-		if (!cutil.isNilOrEmptyString(tickWidth)) {
-			if (cutil.isNilOrEmptyString(tickLower) && !cutil.isNilOrEmptyString(tickUpper)) {
+		if (!cutil.na(tickWidth)) {
+			if (cutil.na(tickLower) && !cutil.na(tickUpper)) {
 				tickLower = d(tickUpper).minus(tickWidth).toFixed(0);
-			} else if (cutil.isNilOrEmptyString(tickUpper) && !cutil.isNilOrEmptyString(tickLower)) {
+			} else if (cutil.na(tickUpper) && !cutil.na(tickLower)) {
 				tickUpper = d(tickLower).plus(tickWidth).toFixed(0);
-			} else if (cutil.isNilOrEmptyString(tickLower) && cutil.isNilOrEmptyString(tickUpper)) {
+			} else if (cutil.na(tickLower) && cutil.na(tickUpper)) {
 				tickLower = d(tick).minus(d(tickWidth).div(2)).toFixed(0);
 				tickUpper = d(tick).plus(d(tickWidth).div(2)).toFixed(0);
 			}
@@ -1285,26 +1291,26 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		priceUpper = d(1.0001).pow(tickUpper).div(10 ** (decimals1 - decimals0)).toNumber();
 		console.log({priceLower, priceUpper});
 		
-		if (cutil.isNilOrEmptyString(amount0_) && !cutil.isNilOrEmptyString(amount0)) {
+		if (cutil.na(amount0_) && !cutil.na(amount0)) {
 			amount0_ = d(amount0).mul(10 ** decimals0).toFixed(0);
 		}
-		if (cutil.isNilOrEmptyString(amount1_) && !cutil.isNilOrEmptyString(amount1)) {
+		if (cutil.na(amount1_) && !cutil.na(amount1)) {
 			amount1_ = d(amount1).mul(10 ** decimals1).toFixed(0);
 		}
 		
-		if (!cutil.isNilOrEmptyString(amount0_) && d(amount0_).lte(0)) {
+		if (!cutil.na(amount0_) && d(amount0_).lte(0)) {
 			let balance0_ = (!dontWrap && chain.isWTok(addressToken0)) ? await account.toGetBalance_() : await account.toGetTokenBalance_(tokenId0);
 			amount0_ = d(balance0_).plus(amount0_).toFixed(0);
 		}
-		if (!cutil.isNilOrEmptyString(amount1_) && d(amount1_).lte(0)) {
+		if (!cutil.na(amount1_) && d(amount1_).lte(0)) {
 			let balance1_ = (!dontWrap && chain.isWTok(addressToken1)) ? await account.toGetBalance_() : await account.toGetTokenBalance_(tokenId1);
 			amount1_ = d(balance1_).plus(amount1_).toFixed(0);
 		}
 		
-		if (cutil.isNilOrEmptyString(total0_) && !cutil.isNilOrEmptyString(total0)) {
+		if (cutil.na(total0_) && !cutil.na(total0)) {
 			total0_ = d(total0).mul(10 ** decimals0).toFixed(0);
 		}
-		if (cutil.isNilOrEmptyString(total1_) && !cutil.isNilOrEmptyString(total1)) {
+		if (cutil.na(total1_) && !cutil.na(total1)) {
 			total1_ = d(total1).mul(10 ** decimals1).toFixed(0);
 		}
 		
@@ -1313,12 +1319,12 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		// amount1_:amount0_
 		let ratio_$ = d(1.0001).pow(tck * +0.5).minus(d(1.0001).pow(tickLower * +0.5)).div(d(1.0001).pow(tck * -0.5).minus(d(1.0001).pow(tickUpper * -0.5)));
 		
-		if (!cutil.isNilOrEmptyString(amount0_) && cutil.isNilOrEmptyString(amount1_)) {
+		if (!cutil.na(amount0_) && cutil.na(amount1_)) {
 			amount1_ = d(amount0_).mul(ratio_$).toFixed(0);
-		} else if (cutil.isNilOrEmptyString(amount0_) && !cutil.isNilOrEmptyString(amount1_)) {
+		} else if (cutil.na(amount0_) && !cutil.na(amount1_)) {
 			amount0_ = d(amount1_).div(ratio_$).toFixed(0);
-		} else if (cutil.isNilOrEmptyString(amount0_) && cutil.isNilOrEmptyString(amount1_)) {
-			if (!cutil.isNilOrEmptyString(total0_)) {
+		} else if (cutil.na(amount0_) && cutil.na(amount1_)) {
+			if (!cutil.na(total0_)) {
 				amount0_ = d(total0_).div(d(1).plus(ratio_$.div(price_$))).toFixed(0);
 				amount1_ = d(amount0_).mul(ratio_$).toFixed(0);
 				
@@ -1330,7 +1336,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 				console.log(d(amount0_).plus(d(amount1_).div(price_$)).toFixed(6));
 				console.log(d(total0_).toFixed(6));
 				
-			} else if (!cutil.isNilOrEmptyString(total1_)) {
+			} else if (!cutil.na(total1_)) {
 				amount0_ = d(total1_).div(ratio_$.plus(price_$)).toFixed(0);
 				amount1_ = d(amount0_).mul(ratio_$).toFixed(0);
 			} else if (ratio_$.eq(0)) {
@@ -1364,7 +1370,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let amount1Desired = amount1_;
 		let amount0Min = d(amount0Desired).mul(1 - defi.tolerance).toFixed(0);
 		let amount1Min = d(amount1Desired).mul(1 - defi.tolerance).toFixed(0);
-		if (cutil.isNilOrEmptyString(recipient)) {
+		if (cutil.na(recipient)) {
 			recipient = address;
 		}
 		let deadline = defi.deadline();
