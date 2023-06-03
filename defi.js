@@ -715,6 +715,7 @@ class Position extends Obj {
 class DeFi extends cutil.mixin(Obj, chainer) {
 	static {
 		cutil.extend(this.prototype, {
+			_defid: null,
 			infos: {
 				"": {
 					"UniswapV3Factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
@@ -797,6 +798,12 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			deadlineMins: 30,
 		});
 	}
+	get defid() {
+		return cutil.a(this._defid) ? this._defid : this.chain.symbol;
+	}
+	set defid(defid) {
+		this._defid = defid;
+	}
 	deadline(now) {
 		let defi = this;
 		if (cutil.isNil(now)) {
@@ -806,7 +813,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 	}
 	get info() {
 		if (!this._info) {
-			this._info = cutil.clone(this.infos[this.chain.symbol] || this.infos[""]);
+			this._info = cutil.clone(this.infos[this.defid] || this.infos[""]);
 		}
 		return this._info;
 	}
@@ -1653,6 +1660,10 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 						} else if (chain.eq(to, defi.account.address)) {
 							tokenIdOut = tokenId;
 							amountOut = value;
+						} else if (chain.eq(from, chain.addressZero) && chain.eq(to, tx.to)) {
+							// arbitrum, etc
+							tokenIdIn = chain.wtok;
+							amountIn = value;
 						}
 					}
 				} else if (name === "Deposit" && chain.isWTok(address)) {
