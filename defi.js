@@ -777,6 +777,8 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 					"TokenValidator": "0x864ED564875BdDD6F421e226494a0E7c071C06f8",
 					"PancakeInterfaceMulticall": "0xac1cE734566f390A94b00eb9bf561c2625BF44ea",
 					"SmartRouterV3": "0x13f4EA83D0bd40E75C8222255bc855a974568Dd4",
+					
+					"UniswapV3Factory": "0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865",
 				},
 			},
 			_info: null,
