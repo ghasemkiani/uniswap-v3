@@ -1745,6 +1745,13 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		routes.sort(({slippage: a}, {slippage: b}) => a - b);
 		return routes;
 	}
+	sort({tokenIdA, tokenIdB}) {
+		let defi = this;
+		let {chain} = defi;
+		let forward = chain.lt(chain.tokenAddress(tokenIdA), chain.tokenAddress(tokenIdB));
+		let [tokenId0, tokenId1] = forward ? [tokenIdA, tokenIdB] : [tokenIdB, tokenIdA];
+		return {tokenId0, tokenId1, forward};
+	}
 }
 
 export {DeFi};
