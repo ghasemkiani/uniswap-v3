@@ -1736,6 +1736,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 				let slippage = 1 - (price / priceExternal);
 				cutil.assign(route, {path, amountIn, amountIn_, amountOut, amountOut_, price, slippage});
 			} catch(e) {
+				// console.log(e);
 				// low liquidity paths cause errors
 				console.log(`Error in quoting path '${route.pathInfo.join(":")}'`);
 			}
