@@ -15,16 +15,17 @@ class Pool extends Obj {
 	static {
 		cutil.extend(this.prototype, {
 			defi: null,
-			tokenIdA: null,
-			tokenIdB: null,
-			tokenA: null,
-			tokenB: null,
-			token0: null,
-			token1: null,
-			tokenId0: null,
-			tokenId1: null,
+			_tokenIdA: null,
+			_tokenIdB: null,
+			_tokenId0: null,
+			_tokenId1: null,
+			_tokenA: null,
+			_tokenB: null,
+			_token0: null,
+			_token1: null,
 			address: null,
-			contract: null,
+			_contract: null,
+			_price_$: null,
 			// immutables
 			addressFactory: null,
 			addressToken0: null,
@@ -46,26 +47,204 @@ class Pool extends Obj {
 			unlocked: null,
 		});
 	}
+	get contract() {
+		let pool = this;
+		if (cutil.na(pool._contract) && cutil.a(pool.address)) {
+			let {address} = pool;
+			let {defi} = pool;
+			let {account} = defi;
+			pool._contract = defi.contract({address, account});
+		}
+		return pool._contract;
+	}
+	set contract(contract) {
+		let pool = this;
+		pool._contract = contract;
+	}
+	get tokenIdA() {
+		let pool = this;
+		let {defi} = pool;
+		if (cutil.na(pool._tokenIdA)) {
+			if (cutil.a(pool._tokenId0)) {
+				pool._tokenIdA = pool.tokenId0;
+			} else if (cutil.a(pool._tokenA)) {
+				pool._tokenIdA = pool.tokenA.id;
+			} else if (cutil.a(pool._token0)) {
+				pool._tokenIdA = pool.token0.id;
+			}
+		}
+		return pool._tokenIdA;
+	}
+	set tokenIdA(tokenIdA) {
+		let pool = this;
+		pool._tokenIdA = tokenIdA;
+	}
+	get tokenIdB() {
+		let pool = this;
+		let {defi} = pool;
+		if (cutil.na(pool._tokenIdB)) {
+			if (cutil.a(pool._tokenId1)) {
+				pool._tokenIdB = pool.tokenId1;
+			} else if (cutil.a(pool._tokenB)) {
+				pool._tokenIdB = pool.tokenB.id;
+			} else if (cutil.a(pool._token1)) {
+				pool._tokenIdB = pool.token1.id;
+			}
+		}
+		return pool._tokenIdB;
+	}
+	set tokenIdB(tokenIdB) {
+		let pool = this;
+		pool._tokenIdB = tokenIdB;
+	}
+	get tokenId0() {
+		let pool = this;
+		let {defi} = pool;
+		if (cutil.na(pool._tokenId0)) {
+			if (cutil.a(pool._tokenIdA) && cutil.a(pool._tokenIdB)) {
+				let {tokenIdA, tokenIdB} = pool;
+				let {tokenId0, tokenId1} = defi.sort({tokenIdA, tokenIdB});
+				cutil.assign(pool, {tokenId0, tokenId1});
+			} else if (cutil.a(pool._token0)) {
+				pool._tokenIdA = pool.token0.id;
+			} else if (cutil.a(pool._tokenA)) {
+				pool._tokenIdA = pool.tokenA.id;
+			}
+		}
+		return pool._tokenId0;
+	}
+	set tokenId0(tokenId0) {
+		let pool = this;
+		pool._tokenId0 = tokenId0;
+	}
+	get tokenId1() {
+		let pool = this;
+		let {defi} = pool;
+		if (cutil.na(pool._tokenId1)) {
+			if (cutil.a(pool._tokenIdA) && cutil.a(pool._tokenIdB)) {
+				let {tokenIdA, tokenIdB} = pool;
+				let {tokenId0, tokenId1} = defi.sort({tokenIdA, tokenIdB});
+				cutil.assign(pool, {tokenId0, tokenId1});
+			} else if (cutil.a(pool._token1)) {
+				pool._tokenIdB = pool.token1.id;
+			} else if (cutil.a(pool._tokenB)) {
+				pool._tokenIdB = pool.tokenB.id;
+			}
+		}
+		return pool._tokenId1;
+	}
+	set tokenId1(tokenId1) {
+		let pool = this;
+		pool._tokenId1 = tokenId1;
+	}
+	get forward() {
+		let pool = this;
+		let {defi} = pool;
+		let {chain} = defi;
+		let {tokenIdA, tokenId0} = pool;
+		let forward = chain.eq(chain.tokenAddress(tokenIdA), chain.tokenAddress(tokenId0));
+		return forward;
+	}
+	get tokenA() {
+		let pool = this;
+		if (cutil.na(pool.tokenA_) && cutil.a(pool.tokenIdA)) {
+			let {defi} = pool;
+			let {account} = defi;
+			let {chain} = defi;
+			pool.tokenA_ = defi.token({id: pool.tokenIdA, account});
+			if (pool.forward) {
+				pool.token0 = pool.tokenA_;
+			} else {
+				pool.token1 = pool.tokenA_;
+			}
+		}
+		return pool.tokenA_;
+	}
+	set tokenA(tokenA) {
+		let pool = this;
+		pool.tokenA_ = tokenA;
+	}
+	get tokenB() {
+		let pool = this;
+		if (cutil.na(pool.tokenB_) && cutil.a(pool.tokenIdB)) {
+			let {defi} = pool;
+			let {account} = defi;
+			let {chain} = defi;
+			pool.tokenB_ = defi.token({id: pool.tokenIdB, account});
+			if (pool.forward) {
+				pool.token1 = pool.tokenB_;
+			} else {
+				pool.token0 = pool.tokenB_;
+			}
+		}
+		return pool.tokenB_;
+	}
+	set tokenB(tokenB) {
+		let pool = this;
+		pool.tokenB_ = tokenB;
+	}
+	get token0() {
+		let pool = this;
+		if (cutil.na(pool.token0_) && cutil.a(pool.tokenId0)) {
+			let {defi} = pool;
+			let {account} = defi;
+			let {chain} = defi;
+			pool.token0_ = defi.token({id: pool.tokenId0, account});
+			if (pool.forward) {
+				pool.tokenA = pool.token0_;
+			} else {
+				pool.tokenB = pool.token0_;
+			}
+		}
+		return pool.token0_;
+	}
+	set token0(token0) {
+		let pool = this;
+		pool.token0_ = token0;
+	}
+	get token1() {
+		let pool = this;
+		if (cutil.na(pool.token1_) && cutil.a(pool.tokenId1)) {
+			let {defi} = pool;
+			let {account} = defi;
+			let {chain} = defi;
+			pool.token1_ = defi.token({id: pool.tokenId1, account});
+			if (pool.forward) {
+				pool.tokenB = pool.token1_;
+			} else {
+				pool.tokenA = pool.token1_;
+			}
+		}
+		return pool.token1_;
+	}
+	set token1(token1) {
+		let pool = this;
+		pool.token1_ = token1;
+	}
 	get feeRate() {
-		return cutil.isNil(this.fee) ? null : this.defi.feeToRate(this.fee);
+		return cutil.na(this.fee) ? null : this.defi.feeToRate(this.fee);
 	}
 	set feeRate(feeRate) {
-		this.fee = cutil.isNil(feeRate) ? null : this.defi.rateToFee(feeRate);
+		this.fee = cutil.na(feeRate) ? null : this.defi.rateToFee(feeRate);
 	}
 	get symbol() {
 		let {tokenId0, tokenId1, feeRate} = this;
-		return [tokenId0, tokenId1, feeRate].find(x => cutil.isNil(x)) ? null : `${tokenId0}/${tokenId1}@${cutil.asString(feeRate)}`;
+		return [tokenId0, tokenId1, feeRate].find(x => cutil.na(x)) ? null : `${tokenId0}/${tokenId1}@${cutil.asString(feeRate)}`;
 	}
 	set symbol(symbol) {
-		if (cutil.isNil(symbol)) {
-			this.tokenId0 = null;
-			this.tokenId1 = null;
-			this.feeRate = null;
+		let pool = this;
+		console.log({symbol});
+		let {defi} = pool;
+		if (cutil.na(symbol)) {
+			pool.tokenIdA = null;
+			pool.tokenIdB = null;
+			pool.tokenId0 = null;
+			pool.tokenId1 = null;
+			pool.feeRate = null;
 		} else {
-			let [, tokenId0, tokenId1, feeRate] = /^(.*)\/(.*)@(.*)$/.exec(symbol);
-			this.tokenId0 = tokenId0;
-			this.tokenId1 = tokenId1;
-			this.feeRate = feeRate;
+			let [, tokenIdA, tokenIdB, feeRate] = /^(.*)\/(.*)@(.*)$/.exec(symbol);
+			let {tokenId0, tokenId1} = defi.sort({tokenIdA, tokenIdB});
+			cutil.assign(pool, {tokenIdA, tokenIdB, tokenId0, tokenId1, feeRate});
 		}
 	}
 	getNearestTick(tick) {
@@ -73,16 +252,136 @@ class Pool extends Obj {
 		return d(tick).div(tickSpacing).round().mul(tickSpacing).toFixed(0);
 	}
 	get price_$() {
-		return d(1.0001).pow(this.tick);
+		return cutil.na(this.tick) ? null : d(1.0001).pow(this.tick);
 	}
 	get price_() {
-		return this.price_$.toString();
+		return this.price_$?.toString();
 	}
 	get price$() {
-		return this.price_$.mul(10 ** (this.token0.decimals - this.token1.decimals));
+		return this.price_$?.mul(10 ** (this.token0.decimals - this.token1.decimals));
 	}
 	get price() {
-		return this.price$.toNumber();
+		return this.price$?.toNumber();
+	}
+	set price(price) {
+		this.price$ = cutil.na(price) ? null : d(price);
+	}
+	set price$(price$) {
+		this.price_$ = cutil.na(price$) ? null : d(price$).div(10 ** (this.token0.decimals - this.token1.decimals));
+	}
+	set price_$(price_$) {
+		this.tick = cutil.na(price_$) ? null : cutil.asInteger(d(price_$).log(1.0001).toNumber()).toString();
+	}
+	set price_(price_) {
+		this.price_$ = cutil.na(price_) ? null : d(price_);
+	}
+	async toUpdate() {
+		let pool = this;
+		await Promise.all([
+			pool.toUpdateAddress(),
+			pool.toUpdateImmutables(),
+			pool.toUpdateState(),
+		]);
+		return pool;
+	}
+	async toUpdateAddress() {
+		let pool = this;
+		if (cutil.na(pool.address)) {
+			let {token0, token1, fee} = pool;
+			let {defi} = pool;
+			let {factory} = defi;
+			await factory.toGetAbi();
+			pool.address = await factory.toCallRead("getPool", token0.address, token1.address, fee);
+			pool.contract = defi.contract({address: pool.address, account});
+		}
+		return pool;
+	}
+	async toUpdateImmutables() {
+		let pool = this;
+		let {contract} = pool;
+		await contract.toGetAbi(abiPool);
+		let {defi} = pool;
+		let {chain} = defi;
+		let [
+			addressFactory,
+			addressToken0,
+			addressToken1,
+			fee,
+			tickSpacing,
+			maxLiquidityPerTick,
+		] = await Promise.all([
+			contract.toCallRead("factory"),
+			contract.toCallRead("token0"),
+			contract.toCallRead("token1"),
+			contract.toCallRead("fee"),
+			contract.toCallRead("tickSpacing"),
+			contract.toCallRead("maxLiquidityPerTick"),
+		]);
+		cutil.assign(pool, {
+			addressFactory,
+			addressToken0,
+			addressToken1,
+			fee,
+			tickSpacing,
+			maxLiquidityPerTick,
+		});
+		defi.addressFactory ||= addressFactory;
+		pool.tokenId0 ||= chain.tokenId(addressToken0);
+		pool.tokenId1 ||= chain.tokenId(addressToken1);
+		try {
+			await pool.token0.toGetDecimals();
+		} catch(e) {
+			console.log(`Error in getting decimals for ${pool.token0.address}`);
+			throw e;
+		}
+		try {
+			await pool.token1.toGetDecimals();
+		} catch(e) {
+			console.log(`Error in getting decimals for ${pool.token1.address}`);
+			throw e;
+		}
+		return pool;
+	}
+	async toUpdateState() {
+		let pool = this;
+		let {contract} = pool;
+		await contract.toGetAbi(abiPool);
+		let {defi} = pool;
+		let {chain} = defi;
+		let [
+			feeGrowthGlobal0X128,
+			feeGrowthGlobal1X128,
+			liquidity,
+			slot0,
+		] = await Promise.all([
+			contract.toCallRead("feeGrowthGlobal0X128"),
+			contract.toCallRead("feeGrowthGlobal1X128"),
+			contract.toCallRead("liquidity"),
+			contract.toCallRead("slot0"),
+		]);
+		let {
+			sqrtPriceX96,
+			tick,
+			observationIndex,
+			observationCardinality,
+			observationCardinalityNext,
+			feeProtocol,
+			unlocked,
+		} = slot0;
+		cutil.assign(pool, {
+			feeGrowthGlobal0X128,
+			feeGrowthGlobal1X128,
+			liquidity,
+			slot0,
+			sqrtPriceX96,
+			tick,
+			observationIndex,
+			observationCardinality,
+			observationCardinalityNext,
+			feeProtocol,
+			unlocked,
+		});
+		return pool;
 	}
 }
 
@@ -90,7 +389,7 @@ class Position extends Obj {
 	static {
 		cutil.extend(this.prototype, {
 			defi: null,
-			pool: null,
+			_pool: null,
 			index: null,
 			id: null,
 			
@@ -99,9 +398,9 @@ class Position extends Obj {
 			addressToken0: null,
 			addressToken1: null,
 			fee: null,
-			tickLower: null,
-			tickUpper: null,
-			liquidity: null,
+			_tickLower: null,
+			_tickUpper: null,
+			_liquidity: null,
 			feeGrowthInside0LastX128: null,
 			feeGrowthInside1LastX128: null,
 			tokensOwed0: null,
@@ -111,10 +410,147 @@ class Position extends Obj {
 			feeGrowthOutside1X128Lower: null,
 			feeGrowthOutside0X128Upper: null,
 			feeGrowthOutside1X128Upper: null,
+			
+			_tickWidth: null,
+			_max0_$: null,
+			_max1_$: null,
+			_amount0_$: null,
+			_amount1_$: null,
 		});
 	}
+	get pool() {
+		let position = this;
+		if (cutil.na(position._pool)) {
+			let {defi} = position;
+			position._pool = defi.pool();
+		}
+		return position._pool;
+	}
+	set pool(pool) {
+		let position = this;
+		position._pool = pool;
+	}
+	get addressPool() {
+		let position = this;
+		return position.pool.address;
+	}
+	set addressPool(addressPool) {
+		let position = this;
+		position.pool.address = addressPool;
+	}
+	get liquidity() {
+		let position = this;
+		return position._liquidity;
+	}
+	set liquidity(liquidity) {
+		let position = this;
+		position._liquidity = liquidity;
+	}
+	get tickLower() {
+		let position = this;
+		if (cutil.na(position._tickLower) && cutil.a(position._tickUpper) && cutil.a(position._tickWidth)) {
+			position._tickLower = position.tickUpper - position.tickWidth;
+		}
+		return position._tickLower;
+	}
+	set tickLower(tickLower) {
+		let position = this;
+		if (cutil.a(tickLower)) {
+			tickLower = cutil.asNumber(tickLower);
+		}
+		position._tickLower = tickLower;
+	}
+	get tickUpper() {
+		let position = this;
+		if (cutil.na(position._tickUpper) && cutil.a(position._tickUpper) && cutil.a(position._tickWidth)) {
+			position._tickUpper = position.tickLower + position.tickWidth;
+		}
+		return position._tickUpper;
+	}
+	set tickUpper(tickUpper) {
+		let position = this;
+		if (cutil.a(tickUpper)) {
+			tickUpper = cutil.asNumber(tickUpper);
+		}
+		position._tickUpper = tickUpper;
+	}
 	get tickWidth() {
-		return d(this.tickUpper).minus(d(this.tickLower)).toNumber();
+		let position = this;
+		if (cutil.na(position._tickWidth) && cutil.a(position._tickLower) && cutil.a(position._tickUpper)) {
+			position._tickWidth = position.tickUpper - position.tickLower;
+		}
+		return position._tickWidth;
+	}
+	set tickWidth(tickWidth) {
+		let position = this;
+		if (cutil.a(tickWidth)) {
+			tickWidth = cutil.asNumber(tickWidth);
+		}
+		position._tickWidth = tickWidth;
+	}
+	set max0_$(max0_$) {
+		let position = this;
+		position._max0_$ = max0_$;
+	}
+	set max1_$(max1_$) {
+		let position = this;
+		position._max1_$ = max1_$;
+	}
+	set amount0_$(amount0_$) {
+		let position = this;
+		position._amount0_$ = amount0_$;
+	}
+	set amount1_$(amount1_$) {
+		let position = this;
+		position._amount1_$ = amount1_$;
+	}
+	set max0_(max0_) {
+		let position = this;
+		position._max0_$ = cutil.na(max0_) ? null : d(max0_);
+	}
+	set max1_(max1_) {
+		let position = this;
+		position._max1_$ = cutil.na(max1_) ? null : d(max1_);
+	}
+	set amount0_(amount0_) {
+		let position = this;
+		position._amount0_$ = cutil.na(amount0_) ? null : d(amount0_);
+	}
+	set amount1_(amount1_) {
+		let position = this;
+		position._amount1_$ = cutil.na(amount1_) ? null : d(amount1_);
+	}
+	set max0$(max0$) {
+		let position = this;
+		position._max0_$ = cutil.na(max0$) ? null : d(max0$).mul(10 ** position.pool.token0.decimals);
+	}
+	set max1$(max1$) {
+		let position = this;
+		position._max1_$ = cutil.na(max1$) ? null : d(max1$).mul(10 ** position.pool.token1.decimals);
+	}
+	set amount0$(amount0$) {
+		let position = this;
+		position._amount0_$ = cutil.na(amount0$) ? null : d(amount0$).mul(10 ** position.pool.token0.decimals);
+	}
+	set amount1$(amount1$) {
+		let position = this;
+		position._amount1_$ = cutil.na(amount1$) ? null : d(amount1$).mul(10 ** position.pool.token1.decimals);
+	}
+	set max0(max0) {
+		let position = this;
+		position.max0$ = cutil.na(max0) ? null : d(max0);
+	}
+	set max1(max1) {
+		let position = this;
+		position.max1$ = cutil.na(max1) ? null : d(max1);
+	}
+	set amount0(amount0) {
+		let position = this;
+		position.amount0$ = cutil.na(amount0) ? null : d(amount0);
+	}
+	set amount1(amount1) {
+		let position = this;
+		position.amount1$ = cutil.na(amount1) ? null : d(amount1);
 	}
 	get max0_$() {
 		return d(this.liquidity).mul(d(1.0001).pow(this.tickLower * -0.5).minus(d(1.0001).pow(this.tickUpper * -0.5)));
@@ -337,6 +773,77 @@ class Position extends Obj {
 	}
 	get rr() {
 		return this.rr$.toNumber();
+	}
+	async toUpdateId() {
+		let position = this;
+		if (cutil.na(position.id)) {
+			if (cutil.na(position.index)) {
+				let {defi} = position;
+				let {index} = position;
+				let {positionManager} = defi;
+				let {account} = defi;
+				let {address} = account;
+				
+				await positionManager.toGetAbi();
+				position.id = await positionManager.toCallRead("tokenOfOwnerByIndex", address, index);
+			}
+		}
+		return position;
+	}
+	async toUpdate() {
+		let position = this;
+		let {defi} = position;
+		let {chain} = defi;
+		let {positionManager} = defi;
+		
+		await positionManager.toGetAbi();
+		
+		await position.toUpdateId();
+		let {id} = position;
+		
+		let {
+			nonce,
+			operator,
+			token0: addressToken0,
+			token1: addressToken1,
+			fee,
+			tickLower,
+			tickUpper,
+			liquidity,
+			feeGrowthInside0LastX128,
+			feeGrowthInside1LastX128,
+			tokensOwed0,
+			tokensOwed1,
+		} = await positionManager.toCallRead("positions", id);
+		let tokenId0 = chain.tokenId(addressToken0);
+		let tokenId1 = chain.tokenId(addressToken1);
+		
+		let pool = await defi.pool({tokenId0, tokenId1, fee});
+		await pool.toUpdate();
+		
+		let {feeGrowthOutside0X128: feeGrowthOutside0X128Lower, feeGrowthOutside1X128: feeGrowthOutside1X128Lower} = await pool.contract.toCallRead("ticks", cutil.asNumber(tickLower));
+		let {feeGrowthOutside0X128: feeGrowthOutside0X128Upper, feeGrowthOutside1X128: feeGrowthOutside1X128Upper} = await pool.contract.toCallRead("ticks", cutil.asNumber(tickUpper));
+		
+		cutil.assign(position, {
+			id,
+			nonce,
+			operator,
+			addressToken0,
+			addressToken1,
+			fee,
+			tickLower,
+			tickUpper,
+			liquidity,
+			feeGrowthInside0LastX128,
+			feeGrowthInside1LastX128,
+			feeGrowthOutside0X128Lower,
+			feeGrowthOutside0X128Upper,
+			feeGrowthOutside1X128Lower,
+			feeGrowthOutside1X128Upper,
+			tokensOwed0,
+			tokensOwed1,
+			pool,
+		});
 	}
 	async toCollect({recipient = null, dontUnwrap = false, onlyData = false, verbose = false}) {
 		let position = this;
@@ -808,7 +1315,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 	}
 	deadline(now) {
 		let defi = this;
-		if (cutil.isNil(now)) {
+		if (cutil.na(now)) {
 			now = Date.now();
 		}
 		return Math.floor(new Date(now).getTime() / 1000 + 60 * defi.deadlineMins);
@@ -939,11 +1446,13 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 	}
 	pool(arg) {
 		let defi = this;
+		let {Pool} = defi;
 		arg = {defi, ...cutil.asObject(arg)};
 		return new Pool(arg);
 	}
 	position(arg) {
 		let defi = this;
+		let {Position} = defi;
 		arg = {defi, ...cutil.asObject(arg)};
 		return new Position(arg);
 	}
@@ -1028,8 +1537,8 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 	}
 	async toGetPool(tokenIdA, tokenIdB, feeRate) {
 		let defi = this;
-		let {account} = defi;
 		let {Pool} = defi;
+		let {account} = defi;
 		
 		let tokenA = defi.token({id: tokenIdA, account});
 		let tokenB = defi.token({id: tokenIdB, account});
@@ -1048,9 +1557,9 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 	}
 	async toGetPoolByAddress(address) {
 		let defi = this;
-		let {account} = defi;
 		let {Pool} = defi;
 		let {chain} = defi;
+		let {account} = defi;
 		
 		let contract = defi.contract({address, account});
 		await contract.toGetAbi(abiPool);
@@ -1230,7 +1739,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			pool,
 		});
 	}
-	async toGetPositions(tokenIdA, tokenIdB, feeRate, maxCount = 0, maxSearchCount = 0) {
+	async toGetPositions({tokenIdA, tokenIdB, feeRate, maxCount = 0, maxSearchCount = 0}) {
 		let defi = this;
 		let {chain} = defi;
 		let pool;
@@ -1329,9 +1838,9 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let ratio_$ = d(1.0001).pow(tck * +0.5).minus(d(1.0001).pow(tickLower * +0.5)).div(d(1.0001).pow(tck * -0.5).minus(d(1.0001).pow(tickUpper * -0.5)));
 		
 		if (!cutil.na(amount0_) && cutil.na(amount1_)) {
-			amount1_ = d(amount0_).mul(ratio_$).toFixed(0);
+			amount1_ = ratio_$.eq(Infinity) ? "0" : d(amount0_).mul(ratio_$).toFixed(0);
 		} else if (cutil.na(amount0_) && !cutil.na(amount1_)) {
-			amount0_ = d(amount1_).div(ratio_$).toFixed(0);
+			amount0_ = ratio_$.eq(0) ? "0" : d(amount1_).div(ratio_$).toFixed(0);
 		} else if (cutil.na(amount0_) && cutil.na(amount1_)) {
 			if (!cutil.na(total0_)) {
 				amount0_ = d(total0_).div(d(1).plus(ratio_$.div(price_$))).toFixed(0);
@@ -1364,6 +1873,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		}
 		
 		console.log({amount0_, amount1_});
+		console.log({amount0, amount1});
 		
 		for (let [token, amount_] of [
 			[pool.token0, amount0_],
@@ -1596,7 +2106,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			throw new Error(`Transaction is pending.`);
 		}
 		({blockNumber} = (tx || receipt));
-		if (cutil.isNil(blockNumber)) {
+		if (cutil.na(blockNumber)) {
 			throw new Error(`Transaction is pending.`);
 		}
 		let tokenId;
@@ -1634,7 +2144,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		}
 		// console.log(JSON.stringify(tx, null, "\t"));
 		let {blockNumber} = tx;
-		if (cutil.isNil(blockNumber)) {
+		if (cutil.na(blockNumber)) {
 			throw new Error(`Transaction is pending.`);
 		}
 		if (!receipt) {
