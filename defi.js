@@ -768,8 +768,20 @@ class Position extends Obj {
 	get ratio() {
 		return this.ratio$.toNumber();
 	}
+	get rr0$() {
+		return this.r0$.div(this.r1$);
+	}
+	get rr0() {
+		return this.rr0$.toNumber();
+	}
+	get rr1$() {
+		return this.r1$.div(this.r0$);
+	}
+	get rr1() {
+		return this.rr1$.toNumber();
+	}
 	get rr$() {
-		return d.max(this.r0$.div(this.r1$), this.r1$.div(this.r0$));
+		return d.max(this.rr0$, this.rr1$);
 	}
 	get rr() {
 		return this.rr$.toNumber();
@@ -1125,6 +1137,9 @@ class Position extends Obj {
 			let liquidity = d(position.liquidity).mul(ratio).toFixed(0);
 			let amount0Min = d(amount0_).mul(ratio).mul(0.9).toFixed(0);
 			let amount1Min = d(amount1_).mul(ratio).mul(0.9).toFixed(0);
+			// ... not needed
+			amount0Min = "0";
+			amount1Min = "0";
 			let deadline = defi.deadline();
 			console.log(JSON.stringify({method: "decreaseLiquidity", params: {tokenId, liquidity, amount0Min, amount1Min, deadline}}));
 			calls.push(positionManager.callData("decreaseLiquidity", [tokenId, liquidity, amount0Min, amount1Min, deadline]));
@@ -1761,7 +1776,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		}
 		return result;
 	}
-	async toMintPosition({tokenIdA, tokenIdB, feeRate, priceLower, priceUpper, diffTickLower, diffTickUpper, tickLower, tickUpper, tickWidth, amountA, amountB, amountA_, amountB_, totalA, totalB, totalA_, totalB_, recipient, dontWrap = false}) {
+	async toMintPosition({tokenIdA, tokenIdB, feeRate, priceLower, priceUpper, diffTickLower, diffTickUpper, tickLower, tickUpper, tickWidth, amountA, amountB, amountA_, amountB_, totalA, totalB, totalA_, totalB_, recipient, dontWrap = false, toAsk = null}) {
 		let defi = this;
 		let {chain} = defi;
 		let {positionManager} = defi;
@@ -1919,6 +1934,12 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			params = [calls.map(({method, params}) => positionManager.callData(method, ...params))];
 		}
 		let data = positionManager.callData(method, ...params);
+		if (cutil.a(toAsk)) {
+			let result = await toAsk();
+			if (!result) {
+				throw new Error(`Cancelled by user!`);
+			}
+		}
 		let receipt = await positionManager.toSendData(data, value);
 		let resProcessTxMint = await defi.toProcessTxMint({receipt});
 		let {hash, tokenId, liquidity} = resProcessTxMint;
@@ -2021,6 +2042,15 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			if (!dontWrap && chain.isWTok(tokenOut)) {
 				amountMinimum = amountOut_;
 				params[0][1] = chain.addressTwo;
+			}
+		}
+		
+		if (!chain.isWTok(tokenIn) || !dontWrap) {
+			let amount_ = amountIn_ || d(amountOut_).div(priceExternal_$).mul(d(1 + defi.tolerance)).toFixed(0);
+			let allowance_ = await tokenIn.toGetAllowance_(account.address, router2.address);
+			if (d(allowance_).lt(amount_)) {
+				console.log(`Approving ${tokenIn.id}`);
+				await tokenIn.toApprove_(router2.address, d(2).pow(256).minus(1).toFixed(0));
 			}
 		}
 		
