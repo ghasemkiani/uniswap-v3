@@ -151,7 +151,7 @@ class Pool extends Obj {
 			let {defi} = pool;
 			let {account} = defi;
 			let {chain} = defi;
-			pool.tokenA_ = defi.token({id: pool.tokenIdA, account});
+			pool.tokenA_ = defi.tkn({id: pool.tokenIdA, account});
 			if (pool.forward) {
 				pool.token0 = pool.tokenA_;
 			} else {
@@ -170,7 +170,7 @@ class Pool extends Obj {
 			let {defi} = pool;
 			let {account} = defi;
 			let {chain} = defi;
-			pool.tokenB_ = defi.token({id: pool.tokenIdB, account});
+			pool.tokenB_ = defi.tkn({id: pool.tokenIdB, account});
 			if (pool.forward) {
 				pool.token1 = pool.tokenB_;
 			} else {
@@ -189,7 +189,7 @@ class Pool extends Obj {
 			let {defi} = pool;
 			let {account} = defi;
 			let {chain} = defi;
-			pool.token0_ = defi.token({id: pool.tokenId0, account});
+			pool.token0_ = defi.tkn({id: pool.tokenId0, account});
 			if (pool.forward) {
 				pool.tokenA = pool.token0_;
 			} else {
@@ -208,7 +208,7 @@ class Pool extends Obj {
 			let {defi} = pool;
 			let {account} = defi;
 			let {chain} = defi;
-			pool.token1_ = defi.token({id: pool.tokenId1, account});
+			pool.token1_ = defi.tkn({id: pool.tokenId1, account});
 			if (pool.forward) {
 				pool.tokenB = pool.token1_;
 			} else {
@@ -1302,6 +1302,9 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 					
 					"UniswapV3Factory": "0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865",
 				},
+				"bsc1": {
+					"PancakeV3Factory": "0xd5363C30A47b4e4BdDfa5be8Ab7d3afFA9B493E7",
+				},
 			},
 			_info: null,
 			
@@ -1542,8 +1545,8 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let {account} = defi;
 		let {factory} = defi;
 		
-		let tokenA = defi.token({id: tokenIdA, account});
-		let tokenB = defi.token({id: tokenIdB, account});
+		let tokenA = defi.tkn({id: tokenIdA, account});
+		let tokenB = defi.tkn({id: tokenIdB, account});
 		
 		await factory.toGetAbi();
 		
@@ -1555,8 +1558,8 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let {Pool} = defi;
 		let {account} = defi;
 		
-		let tokenA = defi.token({id: tokenIdA, account});
-		let tokenB = defi.token({id: tokenIdB, account});
+		let tokenA = defi.tkn({id: tokenIdA, account});
+		let tokenB = defi.tkn({id: tokenIdB, account});
 		
 		let address = await defi.toGetPoolAddress(tokenIdA, tokenIdB, feeRate);
 		
@@ -1614,8 +1617,8 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 			unlocked,
 		} = slot0;
 		
-		let token0 = defi.token({account, address: addressToken0});
-		let token1 = defi.token({account, address: addressToken1});
+		let token0 = defi.tkn({account, address: addressToken0});
+		let token1 = defi.tkn({account, address: addressToken1});
 		let tokenId0 = token0.id;
 		let tokenId1 = token1.id;
 		
@@ -1666,8 +1669,8 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		let {account} = defi;
 		let {factory} = defi;
 		
-		let tokenA = defi.token({id: tokenIdA, account});
-		let tokenB = defi.token({id: tokenIdB, account});
+		let tokenA = defi.tkn({id: tokenIdA, account});
+		let tokenB = defi.tkn({id: tokenIdB, account});
 		
 		await factory.toGetAbi();
 		let address = await factory.toCallRead("createPool", tokenA.address, tokenB.address, defi.rateToFee(feeRate));
@@ -1955,8 +1958,8 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		
 		await quoter.toGetAbi();
 		let path = defi.pathFromTokenIdsAndFees(pathInfo);
-		let tokenIn = defi.token(pathInfo[0]);
-		let tokenOut = defi.token(pathInfo[pathInfo.length - 1]);
+		let tokenIn = defi.tkn(pathInfo[0]);
+		let tokenOut = defi.tkn(pathInfo[pathInfo.length - 1]);
 		await tokenIn.toGetAbi();
 		await tokenIn.toGetDecimals();
 		await tokenOut.toGetAbi();
@@ -2000,8 +2003,8 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		
 		await router2.toGetAbi();
 		let path = defi.pathFromTokenIdsAndFees(pathInfo);
-		let tokenIn = defi.token(pathInfo[0]);
-		let tokenOut = defi.token(pathInfo[pathInfo.length - 1]);
+		let tokenIn = defi.tkn(pathInfo[0]);
+		let tokenOut = defi.tkn(pathInfo[pathInfo.length - 1]);
 		if (!isForward) {
 			[tokenIn, tokenOut] = [tokenOut, tokenIn];
 		}
@@ -2076,7 +2079,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 				let {decoded: {from, to, value}} = log.dec;
 				if (from && to && value) {
 					let tokenId = chain.tokenId(address);
-					let token = defi.token(tokenId);
+					let token = defi.tkn(tokenId);
 					let value_ = value;
 					value = await token.toUnwrapNumber(value_);
 					if (chain.eq(from, defi.account.address)) {
@@ -2194,7 +2197,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 					let {decoded: {from, to, value}} = log.dec;
 					if (from && to && value) {
 						let tokenId = chain.tokenId(address);
-						let token = defi.token(tokenId);
+						let token = defi.tkn(tokenId);
 						value = await token.toUnwrapNumber(value);
 						if (chain.eq(from, defi.account.address)) {
 							tokenIdIn = tokenId;
@@ -2237,8 +2240,8 @@ class DeFi extends cutil.mixin(Obj, chainer) {
 		await quoter.toGetAbi();
 		
 		let pathInfo = pathInfos[0];
-		let tokenIn = defi.token(pathInfo[0]);
-		let tokenOut = defi.token(pathInfo[pathInfo.length - 1]);
+		let tokenIn = defi.tkn(pathInfo[0]);
+		let tokenOut = defi.tkn(pathInfo[pathInfo.length - 1]);
 		await tokenIn.toGetAbi();
 		await tokenIn.toGetDecimals();
 		await tokenOut.toGetAbi();
