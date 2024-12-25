@@ -332,6 +332,9 @@ class Pool extends Obj {
       contract.toCallRead("tickSpacing"),
       contract.toCallRead("maxLiquidityPerTick"),
     ]);
+    fee = d(fee).toNumber();
+    tickSpacing = d(tickSpacing).toNumber();
+    maxLiquidityPerTick = d(maxLiquidityPerTick).toFixed(0);
     cutil.assign(pool, {
       addressFactory,
       addressToken0,
@@ -370,6 +373,11 @@ class Pool extends Obj {
         contract.toCallRead("liquidity"),
         contract.toCallRead("slot0"),
       ]);
+    
+    feeGrowthGlobal0X128 = d(feeGrowthGlobal0X128).toFixed(0);
+    feeGrowthGlobal1X128 = d(feeGrowthGlobal1X128).toFixed(0);
+    liquidity = d(liquidity).toFixed(0);
+    
     let {
       sqrtPriceX96,
       tick,
@@ -379,6 +387,14 @@ class Pool extends Obj {
       feeProtocol,
       unlocked,
     } = slot0;
+    
+    sqrtPriceX96 = d(sqrtPriceX96).toFixed(0);
+    tick = d(tick).toFixed(0);
+    observationIndex = d(observationIndex).toFixed(0);
+    observationCardinality = d(observationCardinality).toFixed(0);
+    observationCardinalityNext = d(observationCardinalityNext).toFixed(0);
+    feeProtocol = d(feeProtocol).toFixed(0);
+    
     cutil.assign(pool, {
       feeGrowthGlobal0X128,
       feeGrowthGlobal1X128,
@@ -861,6 +877,7 @@ class Position extends Obj {
           address,
           index,
         );
+        position.id = d(position.id).toFixed(0);
       }
     }
     return position;
@@ -1911,6 +1928,12 @@ class DeFi extends cutil.mixin(Obj, chainer) {
       contract.toCallRead("liquidity"),
       contract.toCallRead("slot0"),
     ]);
+    
+    maxLiquidityPerTick = d(maxLiquidityPerTick).toFixed(0);
+    feeGrowthGlobal0X128 = d(feeGrowthGlobal0X128).toFixed(0);
+    feeGrowthGlobal1X128 = d(feeGrowthGlobal1X128).toFixed(0);
+    liquidity = d(liquidity).toFixed(0);
+    
     let {
       sqrtPriceX96,
       tick,
@@ -1920,6 +1943,13 @@ class DeFi extends cutil.mixin(Obj, chainer) {
       feeProtocol,
       unlocked,
     } = slot0;
+    
+    sqrtPriceX96 = d(sqrtPriceX96).toFixed(0);
+    tick = d(tick).toFixed(0);
+    observationIndex = d(observationIndex).toFixed(0);
+    observationCardinality = d(observationCardinality).toFixed(0);
+    observationCardinalityNext = d(observationCardinalityNext).toFixed(0);
+    feeProtocol = d(feeProtocol).toFixed(0);
 
     let token0 = defi.tkn({ account, address: addressToken0 });
     let token1 = defi.tkn({ account, address: addressToken1 });
