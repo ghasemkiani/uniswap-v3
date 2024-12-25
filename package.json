@@ -1,6 +1,6 @@
 {
 	"name": "@ghasemkiani/uniswap-v3",
-	"version": "2.4.1",
+	"version": "2.4.2",
 	"description": "Uniswap v3 client library",
 	"type": "module",
 	"main": "index.js",
@@ -26,7 +26,7 @@
 	"homepage": "https://github.com/ghasemkiani/uniswap-v3#readme",
 	"dependencies": {
 		"@ghasemkiani/base": "github:ghasemkiani/base",
-		"@ghasemkiani/evm": "github:ghasemkiani/evm",
-		"decimal.js": "^10.4.2"
+		"@ghasemkiani/decimal": "github:ghasemkiani/decimal",
+		"@ghasemkiani/evm": "github:ghasemkiani/evm"
 	}
 }
