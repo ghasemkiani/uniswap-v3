@@ -3,12 +3,7 @@ import { Obj } from "@ghasemkiani/base";
 import { d } from "@ghasemkiani/decimal";
 import { chainer } from "@ghasemkiani/evm";
 
-import abiPool from "./abi/pool.json" assert { type: "json" };
-
-const PRECISION = 100;
-if (d.precision < PRECISION) {
-  d.set({ precision: PRECISION });
-}
+import abiPool from "./abi/pool.json" with { type: "json" };
 
 class Pool extends Obj {
   static {
@@ -1616,7 +1611,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
       _router2: null,
 
       FEE_RATE_K: 1e6,
-      tolerance: 0.01,
+      tolerance: 0.003,
 
       _reserveBalances: null,
       deadlineMins: 30,
@@ -2815,9 +2810,11 @@ class DeFi extends cutil.mixin(Obj, chainer) {
           amountOut = wad;
         }
       } catch (e) {
+        /*
         console.log(
           `Error in defi.toProcessSwapTx:\n${JSON.stringify(log, null, "\t")}`,
         );
+        */
         console.log(e.message);
       }
     }
