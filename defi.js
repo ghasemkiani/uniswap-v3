@@ -1561,6 +1561,14 @@ class DeFi extends cutil.mixin(Obj, chainer) {
           UniswapWormholeMessageReceiver:
             "0x341c1511141022cf8eE20824Ae0fFA3491F1302b",
         },
+        avax: {
+          UniswapV3Factory: "0x740b1c1de25031C31FF4fC9A62f554A55cdC1baD",
+          QuoterV2: "0xbe0F5544EC67e9B3b2D979aaA43f18Fd87E6257F",
+          SwapRouter02: "0xbb00FF08d01D300023C629E8fFfFcb65A5a578cE",
+          UniswapInterfaceMulticall: "0x0139141Cd4Ee88dF3Cdb65881D411bAE271Ef0C2",
+          ProxyAdmin: "0x9AdA7D7879214073F40183F3410F2b3f088c6381",
+          TickLens: "0xEB9fFC8bf81b4fFd11fb6A63a6B0f098c6e21950",
+        },
         celo: {
           UniswapV3Factory: "0xAfE208a311B21f13EF87E33A90049fC17A7acDEc",
           Multicall2: "0x633987602DE5C4F337e3DbF265303A1080324204",
@@ -1586,6 +1594,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
             "0x46A15B0b27311cedF172AB29E4f4766fbE7F4364",
           MixedRouteQuoterV1: "0x678Aa4bF4E210cf2166753e054d5b7c31cc7fa86",
           QuoterV2: "0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997",
+          Quoter: "0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997", // QuoterV2...
           TickLens: "0x9a489505a00cE272eAa5e07Dba6491314CaE3796",
           TokenValidator: "0x864ED564875BdDD6F421e226494a0E7c071C06f8",
           PancakeInterfaceMulticall:
@@ -2522,6 +2531,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
     let { account } = defi;
     let { address } = account;
     let { router2 } = defi;
+    console.log(`defi.tolerance: ${defi.tolerance}`);
 
     let isForward = amountIn || amountIn_;
 
@@ -2866,6 +2876,10 @@ class DeFi extends cutil.mixin(Obj, chainer) {
             path,
             amountIn_,
           );
+          // QuoterV2
+          if (cutil.isObject(amountOut_)) {
+            amountOut_ = amountOut_["amountOut"];
+          }
           amountOut = tokenOut.unwrapNumber(amountOut_);
         } else {
           // ??????
@@ -2876,6 +2890,10 @@ class DeFi extends cutil.mixin(Obj, chainer) {
             path,
             amountOut_,
           );
+          // QuoterV2
+          if (cutil.isObject(amountIn_)) {
+            amountIn_ = amountIn_["amountIn"];
+          }
           amountIn = tokenIn.unwrapNumber(amountIn_);
         }
 
