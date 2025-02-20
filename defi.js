@@ -1563,13 +1563,19 @@ class DeFi extends cutil.mixin(Obj, chainer) {
         },
         avax: {
           UniswapV3Factory: "0x740b1c1de25031C31FF4fC9A62f554A55cdC1baD",
-          NonfungiblePositionManager:
-            "0x655C406EBFa14EE2006250925e54ec43AD184f8B",
-          QuoterV2: "0xbe0F5544EC67e9B3b2D979aaA43f18Fd87E6257F",
-          SwapRouter02: "0xbb00FF08d01D300023C629E8fFfFcb65A5a578cE",
           UniswapInterfaceMulticall: "0x0139141Cd4Ee88dF3Cdb65881D411bAE271Ef0C2",
           ProxyAdmin: "0x9AdA7D7879214073F40183F3410F2b3f088c6381",
           TickLens: "0xEB9fFC8bf81b4fFd11fb6A63a6B0f098c6e21950",
+          NFTDescriptor: "0x27Dd7eE7fE723e83Bf3612a75a034951fe299E99",
+          NonfungibleTokenPositionDescriptor: "0xe89B7C295d73FCCe88eF263F86e7310925DaEBAF",
+          TransparentUpgradeableProxy: "0xE1f93a7cB6fFa2dB4F9d5A2FD43158A428993C09",
+          NonfungiblePositionManager: "0x655C406EBFa14EE2006250925e54ec43AD184f8B",
+          V3Migrator: "0x44f5f1f5E452ea8d29C890E8F6e893fC0f1f0f97",
+          QuoterV2: "0xbe0F5544EC67e9B3b2D979aaA43f18Fd87E6257F",
+          SwapRouter02: "0xbb00FF08d01D300023C629E8fFfFcb65A5a578cE",
+          Permit2: "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+          UniversalRouter: "0x4Dae2f939ACf50408e13d58534Ff8c2776d45265",
+          UniswapV3Staker: "0xCA9D0668C600c4dd07ca54Be1615FE5CDFd76Ac3",
         },
         celo: {
           UniswapV3Factory: "0xAfE208a311B21f13EF87E33A90049fC17A7acDEc",
