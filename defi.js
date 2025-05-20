@@ -2789,8 +2789,13 @@ class DeFi extends cutil.mixin(Obj, chainer) {
         } = log.dec;
         if (name === "Transfer") {
           let {
-            decoded: { from, to, value },
+            decoded: { from, to, value, src, dst, wad },
           } = log.dec;
+          
+          if (src && dst && wad) {
+            [from, to, value] = [src,  dst, wad];
+          }
+          
           if (from && to && value) {
             let tokenId = chain.tokenId(address);
             let token = defi.tkn(tokenId);
