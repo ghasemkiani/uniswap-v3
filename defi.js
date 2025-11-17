@@ -1521,20 +1521,50 @@ class DeFi extends cutil.mixin(Obj, chainer) {
       infos: {
         "": {
           UniswapV3Factory: "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+          Multicall: "0x1F98415757620B543A52E61c46B32eB19261F984",
           Multicall2: "0x5BA1e12693Dc8F9c48aAD8770482f4739bEeD696",
-          ProxyAdmin: "0xB753548F6E010e7e680BA186F9Ca1BdAB2E90cf2",
+          ProxyAdmin: "0x5d3ceBAb8fbA22B48d725a40452e874F24E537f4",
+          TickLens: "0xB753548F6E010e7e680BA186F9Ca1BdAB2E90cf2",
+          Quoter: "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
+          SwapRouter: "0xE592427A0AEce92De3Edee1F18E0157C05861564",
+          NFTDescriptor: "0x42B24A95702b9986e82d421cC3568932790A48Ec",
+          NonfungibleTokenPositionDescriptor: "0x91ae842A5Ffd8d12023116943e72A606179294f3",
+          TransparentUpgradeableProxy: "0xEe6A57eC80ea46401049E92587E52f5Ec1c24785",
+          NonfungiblePositionManager: "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
+          V3Migrator: "0xA5644E29708357803b5A882D272c41cC0dF92B34",
+          QuoterV2: "0x61fFE014bA17989E743c5F6cB21bF9697530B21e",
+          SwapRouter02: "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+          Permit2: "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+          UniversalRouter: "0x66a9893cc07d91d95644aedd05d03f95e1dba8af",
+          v3StakerAddress: "0xe34139463bA50bD61336E0c446Bd8C0867c6fE65",
+
+        },
+        sepolia: {
+          UniswapV3Factory: "0x0227628f3F023bb0B980b67D528571c95c6DaC1c",
+          Multicall: "0x1F98415757620B543A52E61c46B32eB19261F984",
+          Multicall2: "0xD7F33bCdb21b359c8ee6F0251d30E94832baAd07",
+          ProxyAdmin: "0x0b343475d44EC2b4b8243EBF81dc888BF0A14b36",
+          ProxyAdmin: "0x5d3ceBAb8fbA22B48d725a40452e874F24E537f4",
           TickLens: "0xbfd8137f7d1516D3ea5cA83523914859ec47F573",
           Quoter: "0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6",
           SwapRouter: "0xE592427A0AEce92De3Edee1F18E0157C05861564",
-          SwapRouter02: "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
-          NFTDescriptor: "0x42B24A95702b9986e82d421cC3568932790A48Ec",
-          NonfungibleTokenPositionDescriptor:
-            "0x91ae842A5Ffd8d12023116943e72A606179294f3",
-          TransparentUpgradeableProxy:
-            "0xEe6A57eC80ea46401049E92587E52f5Ec1c24785",
-          NonfungiblePositionManager:
-            "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
-          V3Migrator: "0xA5644E29708357803b5A882D272c41cC0dF92B34",
+          NFTDescriptor: "0x3B5E3c5E595D85fbFBC2a42ECC091e183E76697C",
+          NonfungibleTokenPositionDescriptor: "0x5bE4DAa6982C69aD20A57F1e68cBcA3D37de6207",
+          TransparentUpgradeableProxy: "0xb6f042f0A0ef85427C228bba1d40189ab3425555",
+          NonfungiblePositionManager: "0x1238536071E1c677A632429e3655c799b22cDA52",
+          V3Migrator: "0x729004182cF005CEC8Bd85df140094b6aCbe8b15",
+          QuoterV2: "0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3",
+          SwapRouter02: "0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E",
+          Permit2: "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+          UniversalRouter: "0x3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b",
+          v3StakerAddress: "0xe34139463bA50bD61336E0c446Bd8C0867c6fE65",
+          TimeLock: "0x1a9C8182C09F50C8318d769245beA52c32BE35BC", // owner
+          UniswapV3Staker: "0x6CAB6be593731f560d9792094EbB6d663e48F983",
+          UniswapV2Router02: "0x425141165d3DE9FEC831896C016617a52363b687",
+          PoolManager: "0xB69E301c95D4399a5b4777a193C518F77f60B841",
+          FeeTo: "0x17625154d841546aDbDC4a679DeCB680068f2465",
+          FeeToSetter: "0x8989992cb470d2EBDd8247cE9eF22Cc518B6d37E",
+
         },
         bsc: {
           UniswapV3Factory: "0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7",
@@ -1602,7 +1632,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
             "0x46A15B0b27311cedF172AB29E4f4766fbE7F4364",
           MixedRouteQuoterV1: "0x678Aa4bF4E210cf2166753e054d5b7c31cc7fa86",
           QuoterV2: "0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997",
-          Quoter: "0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997", // QuoterV2...
+          Quoter: "0x4CFefDE4465e5399C3eF289d1aDA1F66F97db86f",
           TickLens: "0x9a489505a00cE272eAa5e07Dba6491314CaE3796",
           TokenValidator: "0x864ED564875BdDD6F421e226494a0E7c071C06f8",
           PancakeInterfaceMulticall:
@@ -1642,10 +1672,15 @@ class DeFi extends cutil.mixin(Obj, chainer) {
   }
   deadline(now) {
     let defi = this;
+    let { deadlineMins } = defi;
+    if (cutil.na(deadlineMins)) {
+      deadlineMins = 30;
+    }
     if (cutil.na(now)) {
       now = Date.now();
     }
-    return Math.floor(new Date(now).getTime() / 1000 + 60 * defi.deadlineMins);
+    let deadline = Math.floor(new Date(now).getTime() / 1000 + 60 * deadlineMins);
+    return deadline;
   }
   get info() {
     if (!this._info) {
@@ -2922,7 +2957,7 @@ class DeFi extends cutil.mixin(Obj, chainer) {
           slippage,
         });
       } catch (e) {
-        // console.log(e);
+        console.log(e);
         // low liquidity paths cause errors
         console.log(`Error in quoting path '${route.pathInfo.join(":")}'`);
       }
